@@ -1,0 +1,633 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script type="text/javascript" src='https://code.jquery.com/jquery-3.2.1.min.js'></script>
+    <script type="text/javascript" src='pokemon_data.js'></script>
+    <style type='text/css'>
+        .dioecious_container {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .dioecious_container img {
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            padding: 0;
+        }
+        .dioecious_container > input[type="radio"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            padding: 0;
+            opacity: 0;
+        }
+        .dioecious_container > input[type="radio"]:first-child {
+            z-index: 10;
+        }
+        .dioecious_container > input[type="radio"]:first-child ~ input[type="radio"] {
+            z-index: 0;
+        }
+        .dioecious_container > input[type="radio"]:first-child:checked {
+            z-index: 0;
+        }
+        .dioecious_container > input[type="radio"]:first-child:checked + input[type="radio"] {
+            z-index: 10;
+        }
+        .dioecious_container > input[type="radio"]:first-child:checked + input[type="radio"] + input[type="radio"] + input[type="radio"] {
+            z-index: 10;
+            transition-property: z-index;
+            transition-delay: 500ms;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"]:checked + input[type="radio"] {
+            z-index: 10;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"]:checked + input[type="radio"] + input[type="radio"] {
+            z-index: 10;
+            transition-property: z-index;
+            transition-delay: 500ms;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"]:checked + input[type="radio"] {
+            z-index: 10;
+        }
+        .dioecious_container > input[type="radio"]:first-child:checked + input[type="radio"] + input[type="radio"] + input[type="radio"] ~ s::before {
+            position: absolute;
+            left: 0px;
+            top: -4px;
+            font-family: courier;
+            font-size: 13pt;
+            text-decoration: none;
+            color: green;
+            content: "✓";
+            text-shadow: 0px 0px 3px green;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"]:checked + input[type="radio"] + input[type="radio"] ~ s::before {
+            position: absolute;
+            left: 0px;
+            top: -4px;
+            font-family: courier;
+            font-size: 20pt;
+            text-decoration: none;
+            color: blue;
+            content: "♂";
+            text-shadow: 0px 0px 3px blue;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"]:checked + input[type="radio"] ~ s::before {
+            position: absolute;
+            left: 0px;
+            top: -4px;
+            font-family: courier;
+            font-size: 20pt;
+            text-decoration: none;
+            color: red;
+            content: "♀";
+            text-shadow: 0px 0px 3px red;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"] + input[type="radio"] ~ u {
+            position: absolute;
+            left: 2px;
+            bottom: 0px;
+            font-family: calibri;
+            font-size: 10px;
+            font-style: normal;
+            font-weight: bold;
+            font-stretch: ultra-condensed;
+            text-shadow: 0px 1px 2px white, 0px -1px 2px white, 1px 0px 2px white, -1px 0px 2px white;
+            text-decoration: none;
+            color: black;
+        }
+        .dioecious_container > input[type="radio"]:first-child:checked + input[type="radio"] + input[type="radio"] + input[type="radio"] ~ img {
+            //background-color: black;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"]:checked + input[type="radio"] + input[type="radio"] ~ img {
+            //background-color: blue;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"]:checked + input[type="radio"] ~ img {
+            //background-color: red;
+        }
+        .dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"] + input[type="radio"]:checked ~ img {
+            //background-color: white;
+            filter: grayscale(100%) opacity(50%);
+        }
+    </style>
+    <style type='text/css'>
+        .content {
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+        .header {
+            position: relative;
+            height: auto;
+            background-color: #eee;
+            margin: 0;
+            padding: 5px;
+        }
+        .header .section {
+            width: 100%;
+            max-width: 50ex;
+            height: auto;
+            margin: 3px;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+            text-align: center;
+        }
+        .header .section input[type=search] {
+            width: 100%;
+            box-sizing: border-box;
+            left: 0px;
+            top: 0px;
+            height: 3.5ex;
+        }
+        .header .section textarea {
+            width: 100%;
+            box-sizing: border-box;
+            left: 0;
+            top: 0;
+            height: 10ex;
+        }
+        .footer {
+            font-family: calibri;
+            background-color: #eee;
+            text-align: center;
+        }
+        body {
+            margin: 0;
+            padding-bottom: 0;
+            padding-top: 0;
+        }
+        .region {
+            position: relative;
+            text-align: center;
+        }
+        .region span {
+            font-family: verdana;
+            font-size: 10pt;
+            font-weight: bold;
+            background: #fff;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+        .region hr {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            z-index: -1;
+        }
+        .list {
+            position: relative;
+            height: 3.5ex;
+            width: 100%;
+            display: inline-block;
+        }
+        .list .select {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+        .list .select select {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        .list > .select {
+            margin-right: 7ex;
+            height: 100%;
+        }
+        .list > .select > .select {
+            margin: 2px;
+            margin-right: 3ex;
+            
+        }
+        .list .select input[type=text] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            border: 0;
+            padding: 0;
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+        .list .button {
+            position: absolute;
+            width: 7ex;
+            top: 0;
+            right: 0;
+            bottom: 0;
+        }
+        .list .button input[type=button] {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body align="center">
+    <div class="header">
+        <div class="section">
+            <textarea></textarea>
+        </div>
+        <div class="section">
+            <div class="list">
+                <div class="select">
+                    <select size="1">
+                    </select>
+                    <div class="select">
+                        <input type="text" value="" placeholder="List name"/>
+                    </div>
+                </div>
+                <div class="button">
+                    <input type="button" value="➕"
+                    /><input type="button" value="➖"/>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <input id="special" type="checkbox" /><label for="special">Special</label>
+        </div>
+        <div class="section">
+            <input id="filter" type="search" placeholder="Filter" />
+        </div>
+    </div>
+    <div class="content">
+    </div>
+    <div class="footer">
+        Pokemon filter contructor © <a href="https://www.reddit.com/user/Fly_33/">Fly33</a> [<a href="https://www.reddit.com/user/Fly_33/draft/558fc91e-4d5d-11eb-9b4f-b62aae688550">discuss</a>], released under the <a href="https://opensource.org/licenses/MIT">MIT license</a>, icons by <!--<a href="https://pokemon.gameinfo.io/>">Pokemon Go Info</a> and--> <a href="https://serebii.net/">Serebii</a>, <a href="javascript:reset()" title="reset">🚑</a>
+    </div>
+    <script type="text/javascript">
+        function map(func) {
+            var fn = func;
+            function *submap(it) {
+                for (let item of it)
+                    yield fn(item);
+            }
+            return submap;
+        }
+        
+        function filter(func) {
+            var fn = func;
+            function* subfilter(it) {
+                for (let item of it)
+                    if (fn(item))
+                        yield item;
+            }
+            return subfilter;
+        }
+        
+        function reduce(func) {
+            var fn = func;
+            function subreduce(it) {
+                var result
+                let first = true;
+                for (let item of it) {
+                    if (first) {
+                        result = item;
+                        first = false;
+                        continue;
+                    }
+                    result = fn(result, it);
+                }
+                return result;
+            }
+            return subreduce;
+        }
+        
+        function join(sep) {
+            var s = sep;
+            function subjoin(it) {
+                var result = ''
+                let first = true;
+                for (let item of it) {
+                    if (first)
+                        first = false;
+                    else
+                        result += s;
+                    result += item;
+                }
+                return result;
+            }
+            return subjoin;
+        }
+        
+        function chain(it, fn, ...jobs) {
+            if (!fn)
+                return it;
+            return chain(fn(it), ...jobs);
+        }
+    
+        Map.prototype.toString = function () {
+            var result = '{'
+            for (let [key, value] of this) {
+                result += key + '=>' + value + ',';
+            }
+            result += '}'
+            return result;
+        }
+        
+        var groups
+        var species
+        var sections
+        var filters
+        
+        function prepare() {
+            groups = new Map();
+            for (let i = 0; i < data.length; ++i) {
+                if (!groups.has(data[i].name))
+                    groups.set(data[i].name, new Map());
+                if (!groups.get(data[i].name).has(data[i].tag1))
+                    groups.get(data[i].name).set(data[i].tag1, new Map());
+                if (!groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2))
+                    groups.get(data[i].name).get(data[i].tag1).set(data[i].tag2, new Map());
+                if (!groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : ""))
+                    groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).set(data[i].shiny ? "shiny" : "", new Map());
+                groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : "").set("male", 0);
+                groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : "").set("female", 0);
+            }
+            sections = new Map();
+            filters = new Map();
+        }
+        
+        function serialize(dat) {
+            return JSON.stringify(dat);
+        }
+        
+        function deserialize(dat) {
+            return JSON.parse(dat);
+        }
+        
+        function default_specy() {
+            return {section: '', checked: 0};
+        }
+        
+        function new_list() {
+            species = {};
+            //for (let i = 0; i < data.length; ++i) {
+            //    species[data[i].pvpoke_id] = default_specy();
+            //}
+            save_list();
+        }
+        
+        function save_list() {
+            localStorage.setItem($('.list select').val(), serialize(species));
+        }
+        
+        function load_list() {
+            //console.log(`loading ${$('.list select').val()}`);
+            species = deserialize(localStorage.getItem($('.list select').val()));
+            
+            //console.log(species);
+            
+            for (let i = 0; i < data.length; ++i) {
+                let g = groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : "");
+                g.set("male", 0);
+                g.set("female", 0);
+            }
+            sections.clear();
+            filters.clear();
+
+            let special = !!species['_special_'];
+            $('#special').prop('checked', special);
+            for (let i = 0; i < data.length; ++i) {
+                let {section, checked} = species[data[i].pvpoke_id] || default_specy();
+                $(`input[name=pokemon_${data[i].pvpoke_id}]:eq(${~checked})`).prop('checked', true);
+                let g = groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : "");
+                g.set('male', g.get('male') + (checked >> 1 & 1));
+                g.set('female', g.get('female') + (checked & 1));
+                if (!sections.has(section))
+                    sections.set(section, new Set());
+                if (checked !== 0 && (special || !data[i].special))
+                    sections.get(section).add(i);
+                else
+                    sections.get(section).delete(i);
+                filters.set(data[i].name, update_filter(data[i].name));
+            }
+            
+            generate();
+            onfilter();
+        }
+        
+        function delete_list() {
+            localStorage.removeItem($('.list select').val());
+        }
+        
+        function load_all() {
+            for (let i = 0; i < localStorage.length; ++i) {
+                let name = localStorage.key(i);
+                $('.list select').append($('<option></option>').prop('value', name).text(name));
+            }
+            $('.list select option:first-child').prop('selected', true);
+            on_list_change();
+        }
+    
+        function update_filter(pokemon) {
+            var special = $('#special').prop('checked');
+            function uf(group) {
+                if (group === 0)
+                    return [''];
+                if (group > 0)
+                    return [];
+                let group_it = group.entries();
+                if (!special)
+                    group_it = filter(([key, value]) => key != "shiny")(group_it);
+                let items = Array.from(group_it, ([key, value]) => [key, uf(value)]);
+                if (items.length === 1)
+                    return items[0][1];
+                if (items.map(([key, value]) => value.length === 1 && value[0] === '').reduce((x, y) => x && y))
+                    return ['']
+                let result = []
+                for (let [key, value] of items) {
+                    let filter
+                    if (key === '')
+                        filter = ',' + Array.from(group.keys()).filter(x => x).join(',');
+                    else
+                        filter = ',!' + key;
+                    for (let item of value)
+                        result.push(filter + item);
+                }
+                return result;
+            }
+            let filters = uf(groups.get(pokemon));
+            if (filters.length === 1 && filters[0] === '')
+                return ''
+            return filters.map(filter => '&!' + pokemon + filter).join('')
+        }
+        
+        function update(i) {
+            let special = $('#special').prop('checked');
+            if (!species[data[i].pvpoke_id])
+                species[data[i].pvpoke_id] = default_specy();
+            let checked = +$('input[name=pokemon_' + data[i].pvpoke_id + ']:checked').val();
+            let g = groups.get(data[i].name).get(data[i].tag1).get(data[i].tag2).get(data[i].shiny ? "shiny" : "");
+            g.set('male', g.get('male') + (checked >> 1 & 1) - (species[data[i].pvpoke_id].checked >> 1 & 1));
+            g.set('female', g.get('female') + (checked & 1) - (species[data[i].pvpoke_id].checked & 1));
+            species[data[i].pvpoke_id].checked = checked;
+            if (!sections.has(species[data[i].pvpoke_id].section))
+                sections.set(species[data[i].pvpoke_id].section, new Set());
+            if (checked !== 0 && (special || !data[i].special))
+                sections.get(species[data[i].pvpoke_id].section).add(i);
+            else
+                sections.get(species[data[i].pvpoke_id].section).delete(i);
+            filters.set(data[i].name, update_filter(data[i].name));
+        }
+        
+        function generate() {
+            let special = $('#special').prop('checked');
+            let result = 'My wishlist (copy whole and paste as is):\n\n';
+            result += chain(sections.entries(), map(function ([key, value]) {
+                return [key, chain(value.values(), map(function(i) {
+                    var pokemon_name = data[i].name;
+                    if (data[i].display)
+                        pokemon_name += ':(' + data[i].display + ')';
+                    if (data[i].shiny)
+                        pokemon_name += ':✨';
+                    if (species[data[i].pvpoke_id].checked == 2)
+                        pokemon_name += ':♂';
+                    if (species[data[i].pvpoke_id].checked == 1)
+                        pokemon_name += ':♀';
+                    return pokemon_name;
+                }), join(', '))]
+            }), filter(([key, value]) => value), 
+            map(([key, value]) => '§' + key + ': ' + value + ';\n'),
+            join(''))
+            result += '\nAddition filters (do not cut off):\n';
+            result += chain(filters.values(), join(''));
+            if (!special)
+                result += '&!shiny';
+            result += '&!traded&!4*;\nMade with Pokemon filter constructor <link>';
+            $('textarea').val(result);
+        }
+        
+        function onchange(i) {
+            update(i);
+            generate();
+            save_list();
+        }
+        
+        function on_special_change() {
+            species['_special_'] = $('#special').prop('checked');
+            for (let i = 0; i < data.length; ++i)
+                update(i);
+            onfilter();
+            generate();
+            save_list();
+        }
+        
+        function onfilter() {
+            var re = new RegExp($('#filter').val(), 'i');
+            let special = $('#special').prop('checked');
+            for (let i = 0; i < data.length; ++i) {
+                var mon = $('#' + data[i].pvpoke_id);
+                if (re.test(data[i].name) && (!data[i].special || special))
+                    mon.show();
+                else
+                    mon.hide();
+            }
+        }
+        
+        function on_list_change() {
+            $('.list input[type=text]').val($('.list select').val()).css('color', 'black');
+            if ($('.list select option').length === 0)
+                on_list_new();
+            load_list();
+        }   
+        
+        function on_list_input() {
+            var name = $('.list input[type=text]').val();
+            if ($('.list select option[value="' + $.escapeSelector(name) + '"]').length != 0 && name != $('.list select').val()) {
+                $('.list input[type=text]').css('color', 'red');
+                return;
+            }
+            delete_list();
+            $('.list select option:selected').prop('value', name).text(name)
+            $('.list input[type=text]').css('color', 'black');
+            save_list();
+        }
+        
+        function on_list_new() {
+            for (var i = 1; ; ++i) {
+                var name = "New list #" + i;
+                if ($('.list select option[value="' + $.escapeSelector(name) + '"]').length == 0)
+                    break;
+            }
+            $('.list select').append($('<option></option>').prop('value', name).text(name));
+            $('.list select option:last-child').prop('selected', true);
+            new_list();
+            on_list_change();
+        }
+        
+        function on_list_delete() {
+            $('.list select option:selected').remove();
+            delete_list();
+            on_list_change();
+        }
+        
+        function reset() {
+            localStorage.clear();
+            document.location.reload();
+        }
+        
+        $(document).ready(function() {
+            for (let i = 0; i < data.length; ++i) {
+                if (i == 0 || data[i].region != data[i-1].region)
+                    $('div.content').append('<div class="region"><span>' + data[i].region + '</span><hr/></div>')
+                //if (data[i].special)
+                  //  continue;
+                $('div.content').append('<span class="dioecious_container" title="' + data[i].name + (data[i].display ? ' (' + data[i].display + ')' : '') + (data[i].shiny ? ' ✨' : '') + '" id="' + data[i].pvpoke_id + '"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="3"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="2"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="1"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="0" checked><s></s><u></u><img src="https://www.serebii.net/pokemongo/pokemon/' + data[i].serebii_id + '.png"></span>')
+                $('input[name=pokemon_' + data[i].pvpoke_id + ']').change(() => onchange(i))
+            }
+            $('#special').bind('change', on_special_change);
+            $('#filter').bind('input', onfilter);
+            $('.list select').bind('change', on_list_change);
+            $('.list input[type=text]').bind('input', on_list_input);
+            $('.list input[type=button]:first-child').bind('click', on_list_new);
+            $('.list input[type=button]:last-child').bind('click', on_list_delete);
+            //localStorage.clear();
+            prepare();
+            load_all();
+        })
+        
+        /*
+            TODO:
+                1. Бесполые легенды
+                +2. Спинда, аноун
+                3. Группы
+                +4. Списки
+                +5. Сохранение
+                6. Шайни и спешлы
+                7. Ссылка на файл в инете в готовом фильтре
+                8. Ссылка на тему на реддите
+                9. Парсинг
+                +10. Лицензия
+                11. Картинки с pokemon.gameinfo.io
+                12. Костюмы пикачу и прочих монстров
+        */
+    </script>
+</body>
+</html>
