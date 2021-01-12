@@ -273,13 +273,13 @@
             <input id="special" type="checkbox" /><label for="special">Special</label>
         </div>
         <div class="section">
-            <input id="filter" type="search" placeholder="Filter" />
+            <input id="filter" type="search" placeholder="Quick filter" />
         </div>
     </div>
     <div class="content">
     </div>
     <div class="footer">
-        Pokemon filter contructor © <a href="https://www.reddit.com/user/Fly_33/">Fly33</a> [<a href="https://www.reddit.com/user/Fly_33/draft/558fc91e-4d5d-11eb-9b4f-b62aae688550">discuss</a>], released under the <a href="https://opensource.org/licenses/MIT">MIT license</a>, icons by <!--<a href="https://pokemon.gameinfo.io/>">Pokemon Go Info</a> and--> <a href="https://serebii.net/">Serebii</a>, <a href="javascript:reset()" title="reset">🚑</a>
+        Pokemon filter contructor © <a href="https://www.reddit.com/user/Fly_33/">Fly33</a> [<a href="https://www.reddit.com/user/Fly_33/draft/558fc91e-4d5d-11eb-9b4f-b62aae688550">discuss</a> on reddit], released under the <a href="https://opensource.org/licenses/MIT">MIT license</a>, icons by <!--<a href="https://pokemon.gameinfo.io/>">Pokemon Go Info</a> and--> <a href="https://serebii.net/">Serebii</a>, <a href="javascript:reset()" title="reset">🚑</a>
     </div>
     <script type="text/javascript">
         function map(func) {
@@ -520,7 +520,7 @@
             result += chain(filters.values(), join(''));
             if (!special)
                 result += '&!shiny';
-            result += '&!traded&!4*;\nMade with Pokemon filter constructor <link>';
+            result += '&!traded&!4*;\nMade with Pokemon filter constructor https://fly33.github.io/pogo_filter.html';
             $('textarea').val(result);
         }
         
@@ -572,7 +572,7 @@
         
         function on_list_new() {
             for (var i = 1; ; ++i) {
-                var name = "New list #" + i;
+                var name = "New filter #" + i;
                 if ($('.list select option[value="' + $.escapeSelector(name) + '"]').length == 0)
                     break;
             }
@@ -589,8 +589,10 @@
         }
         
         function reset() {
-            localStorage.clear();
-            document.location.reload();
+            if (confirm("Clear all data?")) {
+                localStorage.clear();
+                document.location.reload();
+            }
         }
         
         $(document).ready(function() {
@@ -608,7 +610,6 @@
             $('.list input[type=text]').bind('input', on_list_input);
             $('.list input[type=button]:first-child').bind('click', on_list_new);
             $('.list input[type=button]:last-child').bind('click', on_list_delete);
-            //localStorage.clear();
             prepare();
             load_all();
         })
@@ -620,13 +621,23 @@
                 3. Группы
                 +4. Списки
                 +5. Сохранение
-                6. Шайни и спешлы
-                7. Ссылка на файл в инете в готовом фильтре
+                +6. Шайни и спешлы
+                +7. Ссылка на файл в инете в готовом фильтре
                 8. Ссылка на тему на реддите
                 9. Парсинг
                 +10. Лицензия
-                11. Картинки с pokemon.gameinfo.io
+                -11. Картинки с pokemon.gameinfo.io
                 12. Костюмы пикачу и прочих монстров
+        */
+        
+        /*
+            Pokemon Go filter
+            Эта штука позволяет создвать фильтры покемонов. Их можно использовать для трейдов.
+            Фильтр сделан таким образом, чтобы его мог бы прочитать человек, и при этом он работал бы как игровой фильтр без каких-либо изменений. Поэтому в нём используются имена покемонов, а не номера. 
+            Кликните на изображение покемона, чтобы выбрать его. Кликните не покемона быстро несколько раз, чтобы выбрать конкретный пол.
+            Готовый фильтр появится вверху страницы. Некоторые покемоны на текущий момент не отличимы друг от друга, такие как бурми или черрим.
+            Ниже можно задать название фильтра. Фильтры сохраняются локально в вашем броузере. Чтобы скопировать фильтр в другой броузер, вставьте его в textarea (ещё в разработке).
+            Ещё там есть быстрый фильтр, чтобы легко можно было найти нужного покемона.
         */
     </script>
 </body>
