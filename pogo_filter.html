@@ -508,19 +508,19 @@
                     if (data[i].shiny)
                         pokemon_name += ':✨';
                     if (species[data[i].pvpoke_id].checked == 2)
-                        pokemon_name += ':♂';
+                        pokemon_name += ':(♂)';
                     if (species[data[i].pvpoke_id].checked == 1)
-                        pokemon_name += ':♀';
+                        pokemon_name += ':(♀)';
                     return pokemon_name;
                 }), join(', '))]
             }), filter(([key, value]) => value), 
-            map(([key, value]) => '§' + key + ': ' + value + ';\n'),
+            map(([key, value]) => '📎' + key + ': ' + value + ';\n'),
             join(''))
             result += '\nAddition filters (do not cut off):\n';
             result += chain(filters.values(), join(''));
             if (!special)
                 result += '&!shiny';
-            result += '&!traded&!4*;\nMade with Pokemon filter constructor https://fly33.github.io/pogo_filter.html';
+            result += '&!traded&!4*;\nMade with Pokemon filter constructor fly33.github.io/pogo_filter.html';
             $('textarea').val(result);
         }
         
@@ -588,6 +588,10 @@
             on_list_change();
         }
         
+        function on_textarea_focus() {
+            $('textarea').select();
+        }
+        
         function reset() {
             if (confirm("Clear all data?")) {
                 localStorage.clear();
@@ -610,6 +614,7 @@
             $('.list input[type=text]').bind('input', on_list_input);
             $('.list input[type=button]:first-child').bind('click', on_list_new);
             $('.list input[type=button]:last-child').bind('click', on_list_delete);
+            $('textarea').bind('focus', on_textarea_focus);
             prepare();
             load_all();
         })
