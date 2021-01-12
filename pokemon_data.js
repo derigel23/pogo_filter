@@ -1117,6 +1117,8 @@ var data = [
     {dex: "589", name: "Escavalier", pvpoke_id: "escavalier", serebii_id: "589", pginfo_id: "589-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
     {dex: "590", name: "Foongus", pvpoke_id: "foongus", serebii_id: "590", pginfo_id: "590-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
     {dex: "591", name: "Amoonguss", pvpoke_id: "amoonguss", serebii_id: "591", pginfo_id: "591-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
+    {dex: "592", name: "Frillish", pvpoke_id: "frillish", serebii_id: "592", pginfo_id: "592-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
+    {dex: "593", name: "Jellicent", pvpoke_id: "jellicent", serebii_id: "593", pginfo_id: "593-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
     {dex: "594", name: "Alomomola", pvpoke_id: "alomomola", serebii_id: "594", pginfo_id: "594-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
     {dex: "595", name: "Joltik", pvpoke_id: "joltik", serebii_id: "595", pginfo_id: "595-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
     {dex: "596", name: "Galvantula", pvpoke_id: "galvantula", serebii_id: "596", pginfo_id: "596-00", tag1: "", tag2: "", display: "", region: "Unova", gender: true, shiny: false, special: false},
