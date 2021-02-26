@@ -249,7 +249,7 @@ function generate() {
             return pokemon_name;
         }), join(', '))]
     }), filter(([key, value]) => value), 
-    map(([key, value]) => '⮁' + key + ': ' + value + ';\n'),
+    map(([key, value]) => '§' + key + ': ' + value + ';\n'),
     join(''));
     result += '\n' + l10n.phrases.caption2 + '\n';
     result += chain(filters.values(), join(''));
@@ -395,7 +395,7 @@ function reset() {
 
 function parse_local(text, l10n) {
     species = {};
-    for (let m of text.matchAll(/^⮁([^:]*):((\s+([^,;]+)[,;])+?)$/gm)) {
+    for (let m of text.matchAll(/^§([^:]*):((\s+([^,;]+)[,;])+?)$/gm)) {
         console.log(`Match "${m}"`);
         console.log(m[2]);
         for (let n of m[2].matchAll(/\s+([^,;]+)/g)) {
