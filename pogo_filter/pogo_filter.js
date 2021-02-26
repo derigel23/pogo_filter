@@ -106,6 +106,7 @@ function prepare() {
 
 function image(i) {
     return `https://www.serebii.net/pokemongo/pokemon/${data[i].serebii_id}.png`;
+    //return `https://archives.bulbagarden.net/media/upload/${data[i].bulbapedia_id}.png`;
     //return `https://github.com/ZeChrales/PogoAssets/blob/master/pokemon_icons/pokemon_icon_${data[i].pogoassets_id}.png?raw=true`;
 }
 
@@ -248,7 +249,7 @@ function generate() {
             return pokemon_name;
         }), join(', '))]
     }), filter(([key, value]) => value), 
-    map(([key, value]) => '📎' + key + ': ' + value + ';\n'),
+    map(([key, value]) => '⮁' + key + ': ' + value + ';\n'),
     join(''));
     result += '\n' + l10n.phrases.caption2 + '\n';
     result += chain(filters.values(), join(''));
@@ -394,7 +395,7 @@ function reset() {
 
 function parse_local(text, l10n) {
     species = {};
-    for (let m of text.matchAll(/^📎([^:]*):((\s+([^,;]+)[,;])+?)$/gm)) {
+    for (let m of text.matchAll(/^⮁([^:]*):((\s+([^,;]+)[,;])+?)$/gm)) {
         console.log(`Match "${m}"`);
         console.log(m[2]);
         for (let n of m[2].matchAll(/\s+([^,;]+)/g)) {
@@ -512,7 +513,7 @@ $(document).ready(function() {
         for (let i = 0; i < data.length; ++i) {
             if (i == 0 || data[i].region != data[i-1].region)
                 $('div.content').append('<div class="region"><span>' + data[i].region + '</span><hr/></div>');
-            $('div.content').append('<span class="dioecious_container" title="' + data[i].name + (data[i].form ? ' (' + data[i].form + ')' : '') + (data[i].shiny ? ' ✨' : '') + '" id="' + data[i].pvpoke_id + '"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="3"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="2"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="1"><input type="radio" name="pokemon_' + data[i].pvpoke_id + '" value="0" checked><s></s><u></u><img src="' + image(i) + '"></span>');
+            $('div.content').append(`<span class="dioecious_container" title="${data[i].dex}. ${data[i].name}${(data[i].form ? ' (' + data[i].form + ')' : '')}${(data[i].shiny ? ' ✨' : '')}" id="${data[i].pvpoke_id}"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="3"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="2"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="1"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="0" checked><s></s><u></u><img src="${image(i)}"></span>`);
             $('input[name=pokemon_' + data[i].pvpoke_id + ']').change((i => (() => onchange(i)))(i));
             $(`#${data[i].pvpoke_id}`).bind('contextmenu', (i => (e => on_pokemon_context(e, i)))(i));
             index_by_name[`${data[i].name}#${data[i].form}#${data[i].shiny}`] = i;
