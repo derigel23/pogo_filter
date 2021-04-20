@@ -97,6 +97,9 @@
     text-decoration: none;
     color: black;
 }
+.dioecious_container > input[type="radio"]:first-child + input[type="radio"] + input[type="radio"] + input[type="radio"]:checked ~ u {
+    display: none;
+}
 .dioecious_container > input[type="radio"]:first-child:checked + input[type="radio"] + input[type="radio"] + input[type="radio"] ~ img {
     //background-color: black;
 }

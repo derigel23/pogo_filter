@@ -28,7 +28,7 @@ function reduce(func) {
                 first = false;
                 continue;
             }
-            result = fn(result, it);
+            result = fn(result, item);
         }
         return result;
     }
@@ -146,12 +146,15 @@ function load_list() {
     sections.clear();
     filters.clear();
 
+    let l10n = l10n_by_id[$('#language').val()].data;
+
     let special = !!species['_special_'];
     $('#special').prop('checked', special);
     for (let i = 0; i < data.length; ++i) {
         let {section, gender} = species[data[i].pvpoke_id] || default_specy();
-        $(`input[name=pokemon_${data[i].pvpoke_id}]:eq(${~gender})`).prop('checked', true);
-        $(`input[name=pokemon_${data[i].pvpoke_id}] ~ u`).text(section);
+        let container = $(`#${data[i].pvpoke_id}`);
+        container.find(`> input[value=${gender}]`).prop('checked', true);
+        container.find(`> u`).text(section);
         let g = groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "");
         g.set('male', g.get('male') + (gender >> 1 & 1));
         g.set('female', g.get('female') + (gender & 1));
@@ -159,7 +162,7 @@ function load_list() {
             add_to_section(i, section)
         else
             remove_from_section(i, section);
-        filters.set(data[i].name, update_filter(data[i].name));
+        filters.set(data[i].name, update_filter(data[i].name, special, l10n));
     }
     
     generate();
@@ -180,9 +183,7 @@ function load_all() {
     on_list_change();
 }
 
-function update_filter(pokemon) {
-    var special = $('#special').prop('checked');
-    let l10n = l10n_by_id[$('#language').val()].data;
+function update_filter(pokemon, special, l10n) {
     function uf(group) {
         if (group === 0)
             return [''];
@@ -216,10 +217,11 @@ function update_filter(pokemon) {
 
 function update(i) {
     let special = $('#special').prop('checked');
+    let l10n = l10n_by_id[$('#language').val()].data;
     if (!species[data[i].pvpoke_id])
         species[data[i].pvpoke_id] = default_specy();
     let {section, gender: old_gender} = species[data[i].pvpoke_id];
-    let new_gender = +$('input[name=pokemon_' + data[i].pvpoke_id + ']:checked').val();
+    let new_gender = +$(`#${data[i].pvpoke_id} > input:checked`).val();
     let g = groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "");
     g.set('male', g.get('male') + (new_gender >> 1 & 1) - (old_gender >> 1 & 1));
     g.set('female', g.get('female') + (new_gender & 1) - (old_gender & 1));
@@ -228,7 +230,7 @@ function update(i) {
         add_to_section(i, section)
     else
         remove_from_section(i, section);
-    filters.set(data[i].name, update_filter(data[i].name));
+    filters.set(data[i].name, update_filter(data[i].name, special, l10n));
 }
 
 function generate() {
@@ -238,6 +240,8 @@ function generate() {
     result += chain([...sections.entries()].sort(), map(function ([key, value]) {
         return [key, chain(value.values(), map(function(i) {
             var pokemon_name = l10n.names[data[i].name.toLowerCase()];
+            if (data[i].origin)
+                pokemon_name += ':(' + l10n.forms[data[i].origin.toLowerCase()] + ')';
             if (data[i].form)
                 pokemon_name += ':(' + l10n.forms[data[i].form.toLowerCase()] + ')';
             if (data[i].shiny)
@@ -255,7 +259,7 @@ function generate() {
     result += chain(filters.values(), join(''));
     if (!special)
         result += '&!' + l10n.filters['shiny'] + '&!' + l10n.filters['purified'];
-    result += '&!' + l10n.filters['traded'] + '&!' + l10n.filters['perfect'] + ';\n\n' + l10n.phrases.postscript;
+    result += '&!' + l10n.filters['traded'] + '&!4*;\n\n' + l10n.phrases.postscript;
     $('textarea').val(result);
 }
 
@@ -274,13 +278,164 @@ function on_special_change() {
     save_all();
 }
 
-function onfilter() {
+function parse_filter(s) {
     let l10n = l10n_by_id[$('#language').val()].data;
-    var re = new RegExp($('#filter').val(), 'i');
+    let i = 0;
+
+    function skip_white() {
+        while (i < s.length && ' \r\n\t'.indexOf(s[i]) != -1)
+            ++i;
+    }
+
+    function parse_and() {
+        let result = parse_or();
+        skip_white();
+        while (i < s.length && s[i] === '&') {
+            ++i;
+            let op1 = result, op2 = parse_or();
+            result = function(record) { 
+                let x = op1(record);
+                if (x === false)
+                    return false;
+                let y = op2(record);
+                if (x === none)
+                    return y;
+                if (y === false)
+                    return false;
+                if (y === none)
+                    return x;
+                if (x === true && y === true)
+                    return true;
+                return undefined;
+            };
+        }
+        return result;
+    }
+    
+    function parse_or() {
+        let result = parse_unary();
+        skip_white();
+        while (i < s.length && ',;:'.indexOf(s[i]) !== -1) {
+            ++i;
+            let op1 = result, op2 = parse_unary();
+            result = function(record) {
+                let x = op1(record);
+                if (x === true)
+                    return true;
+                let y = op2(record);
+                if (x === none)
+                    return y;
+                if (y === true)
+                    return true;
+                if (y === none)
+                    return x;
+                if (x === false && y === false)
+                    return false;
+                return undefined;
+            };
+        }
+        return result;
+    }
+    
+    function parse_unary() {
+        skip_white();
+        if (i < s.length && s[i] === '!') {
+            ++i;
+            let op = parse_unary();
+            return function(record) {
+                let x = op(record); 
+                if (x === none || x === undefined)
+                    return x;
+                return !x;
+            };
+        } else if (i < s.length && s[i] === '+') {
+            ++i;
+            let op = parse_unary();
+            return function(record) {
+                let res = none;
+                for (let member of record.family) {
+                    let x = op(member);
+                    if (x === true)
+                        return true;
+                    if (x === none)
+                        continue;
+                    if (res !== undefined)
+                        res = x;
+                }
+                return res;
+            };
+        }
+        return parse_simple();
+    }
+
+    let none = {}
+    let undefined_re = RegExp(`^(?:${l10n.filters['male']}|${l10n.filters['female']}|${l10n.filters['genderunknown']}|@[\\w ]+|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|\\d\\*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
+    let dex_re = /^(?:(\d+)|(\d*)-(\d*))$/;
+    let evolve_re = RegExp(`^(?:${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]})$`, "i");
+    let megaevolve_re = RegExp(`^${l10n.filters["megaevolve"]}$`, "i");
+    let item_re = RegExp(`^${l10n.filters["item"]}$`, "i");
+    let eggsonly_re = RegExp(`^${l10n.filters["eggsonly"]}$`, "i");
+    let costume_re = RegExp(`^${l10n.filters["costume"]}$`, "i");
+    let shiny_re = RegExp(`^${l10n.filters["shiny"]}$`, "i");
+    let legendary_re = RegExp(`^${l10n.filters["legendary"]}$`, "i");
+    let mythical_re = RegExp(`^${l10n.filters["mythical"]}$`, "i");
+    
+    function parse_simple() {
+        skip_white();
+        let j = i;
+        while (i < s.length && '&,;:!'.indexOf(s[i]) === -1) {
+            ++i;
+        }
+        let str = s.substring(j, i).trim().toLowerCase();
+        if (str === "")
+            return record => none;
+        let dex = str.match(dex_re);
+        if (dex) {
+            let left, right;
+            if (dex[1])
+                right = left = +dex[1];
+            if (dex[2])
+                left = +dex[2];
+            if (dex[3])
+                right = +dex[3];
+            return record => (!left || left <= +record.dex) && (!right || +record.dex <= right);
+        }
+        if (str.search(evolve_re) != -1)
+            return record => record.evolve;
+        if (str.search(megaevolve_re) != -1)
+            return record => record.megaevolve;
+        if (str.search(item_re) != -1)
+            return record => record.item;
+        if (str.search(eggsonly_re) != -1)
+            return record => record.eggsonly;
+        // if (str.search(costume_re) != -1)
+            // return record => record.costume;
+        if (str.search(shiny_re) != -1)
+            return record => record.shiny;
+        if (str.search(legendary_re) != -1)
+            return record => record.legendary;
+        if (str.search(mythical_re) != -1)
+            return record => record.mythical;
+        if (str.search(undefined_re) != -1)
+            return record => undefined;
+        return record => l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(str) ||
+                         l10n.filters[record.type1.toLowerCase()].toLowerCase() === str ||
+                         record.type2 && l10n.filters[record.type2.toLowerCase()].toLowerCase() === str ||
+                         l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === str;
+    }
+    
+    let r = parse_and();
+    if (i != s.length)
+        return record => false;
+    return r;
+}
+
+function onfilter() {
+    var check = parse_filter($('#filter').val());
     let special = $('#special').prop('checked');
     for (let i = 0; i < data.length; ++i) {
         var mon = $('#' + data[i].pvpoke_id);
-        if ((re.test(data[i].name) || re.test(l10n.names[data[i].name.toLowerCase()]) || re.test(data[i].dex)) && (!data[i].special || special))
+        if (check(data[i]) !== false && (!data[i].special || special))
             mon.show();
         else
             mon.hide();
@@ -378,7 +533,7 @@ function on_toolbox_close(e) {
         add_to_section(toolbox_specy_id, new_section);
     }
     species[data[toolbox_specy_id].pvpoke_id].section = new_section;
-    $(`input[name=pokemon_${data[toolbox_specy_id].pvpoke_id}] ~ u`).text(new_section);
+    $(`#${data[toolbox_specy_id].pvpoke_id} > u`).text(new_section);
     toolbox_specy_id = undefined;
     $('#section input[type=text]').val('');
     $('.toolbox').hide();
@@ -428,7 +583,7 @@ function parse_local(text, l10n) {
                 else if (form == 'Female')
                     gender = 1;
                 else
-                    forme = form;
+                    forme += form;
             }
             let index = index_by_name[`${name}#${forme}#${shiny}`];
             if (index === undefined) {
@@ -509,14 +664,19 @@ $(document).ready(function() {
     });
     request_json("pogo_data.json", function(_data) {
         data = _data;
-        index_by_name = {}
+        index_by_name = {};
+        var family = {};
         for (let i = 0; i < data.length; ++i) {
             if (i == 0 || data[i].region != data[i-1].region)
                 $('div.content').append('<div class="region"><span>' + data[i].region + '</span><hr/></div>');
-            $('div.content').append(`<span class="dioecious_container" title="${data[i].dex}. ${data[i].name}${(data[i].form ? ' (' + data[i].form + ')' : '')}${(data[i].shiny ? ' ✨' : '')}" id="${data[i].pvpoke_id}"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="3"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="2"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="1"><input type="radio" name="pokemon_${data[i].pvpoke_id}" value="0" checked><s></s><u></u><img src="${image(i)}"></span>`);
-            $('input[name=pokemon_' + data[i].pvpoke_id + ']').change((i => (() => onchange(i)))(i));
-            $(`#${data[i].pvpoke_id}`).bind('contextmenu', (i => (e => on_pokemon_context(e, i)))(i));
-            index_by_name[`${data[i].name}#${data[i].form}#${data[i].shiny}`] = i;
+            $('div.content').append(`<span class="dioecious_container" title="${data[i].dex}. ${data[i].name}${(data[i].origin ? ' (' + data[i].origin + ')' : '')}${(data[i].form ? ' (' + data[i].form + ')' : '')}${(data[i].shiny ? ' ✨' : '')}" id="${data[i].pvpoke_id}"><input type="radio" name="${data[i].pvpoke_id}" value="3"><input type="radio" name="${data[i].pvpoke_id}" value="2"><input type="radio" name="${data[i].pvpoke_id}" value="1"><input type="radio" name="${data[i].pvpoke_id}" value="0" checked><s></s><u></u><img src="${image(i)}"></span>`);
+            $(`#${data[i].pvpoke_id} > input`).change(() => onchange(i));
+            $(`#${data[i].pvpoke_id}`).bind('contextmenu', e => on_pokemon_context(e, i));
+            index_by_name[`${data[i].name}#${data[i].origin}${data[i].form}#${data[i].shiny}`] = i;
+            if (family[data[i].family] === undefined)
+                family[data[i].family] = [];
+            family[data[i].family].push(data[i]);
+            data[i].family = family[data[i].family];
         }
         prepare();
     });
