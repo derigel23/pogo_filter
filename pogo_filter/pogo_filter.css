@@ -206,8 +206,8 @@ body {
     display: none;
     position: absolute;
     width: 200px;
-    right : 3ex;
-    top: 0.5ex;
+    right : 0.5ex;
+    top: 3.5ex;
     z-index: 100;
     border: 1px outset lightgray;
 }
