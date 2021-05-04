@@ -151,6 +151,53 @@
     top: 0;
     height: 10ex;
     margin: 0;
+    font-size: smaller;
+}
+.container {
+    position: relative;
+    padding: 0;
+    border: 0;
+    width: 100%;
+}
+.container > div {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.container > div ~ div {
+    position: relative;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.header .section .menu {
+    position: relative;
+    padding: 0;
+    border: 0;
+    height: 3.5ex;
+    width: 100%;
+}
+.header .section .menu .submenu {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+.header .section .menu > .submenu {
+    margin-right: 3.5ex;
+}
+.header .section .menu > .submenu > .submenu {
+    right: -3.5ex;
+    width: 3.5ex;
 }
 .footer {
     font-family: calibri;
@@ -190,18 +237,46 @@ body {
     margin: 0;
     box-sizing: border-box;
 }
+#menu {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    left: auto;
+    width: 3.5ex;
+    text-align: center;
+    padding-top: 4px;
+    margin: 0;
+}
+#menu .sub {
+    display: none;
+    position: absolute;
+    width: 200px;
+    right : 2ex;
+    top: 2ex;
+    z-index: 100;
+    border: 1px outset lightgray;
+}
+#menu:hover .sub {
+    display: block;
+}
+#menu .item {
+    background-color: #eee;
+    width: auto;
+    height: auto;
+}
+label {
+    font-family: calibri;
+}
 #list {
     position: relative;
     height: 3.5ex;
-    width: 100%;
-    display: inline-block;
+    width: auto;
+    margin-right: 3.5ex;
 }
 #list .select {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
+    width: auto;
     margin: 0;
     padding: 0;
     border: 0;
@@ -224,6 +299,11 @@ body {
 #list > .select > .select {
     margin: 2px;
     margin-right: 3ex;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
 }
 #list .select input[type=text] {
     position: absolute;

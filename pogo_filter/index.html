@@ -10,13 +10,21 @@
 <body align="center">
     <div class="header">
         <div class="section">
-            <select id="language">
-            </select>
-        </div>
-        <div class="section">
-            <textarea></textarea>
-        </div>
-        <div class="section">
+            <div id="menu">
+                ⋮
+                <div class="sub">
+                    <div class="item">
+                        <select id="language">
+                        </select>
+                    </div>
+                    <!--div class="item">
+                        <input id="compact" type="checkbox" /><label for="compact">Compact</label>
+                    </div-->
+                    <div class="item">
+                        <input id="special" type="checkbox" /><label for="special">Special</label>
+                    </div>
+                </div>
+            </div>
             <div id="list">
                 <div class="select">
                     <select size="1">
@@ -32,7 +40,7 @@
             </div>
         </div>
         <div class="section">
-            <input id="special" type="checkbox" /><label for="special">Special</label>
+            <textarea></textarea>
         </div>
         <div class="section">
             <input id="filter" type="search" placeholder="Quick filter" />
@@ -109,6 +117,11 @@
                 27.3 По двойному клику (или по кнопке) переход в режим выделения
                 27.4 Бар с кнопками для обработки выделенного. (выбрать/убрать, кинуть в группу, убрать выделение/включить режим выделения, выделить всё)
                 29. Локализация для подсказок (title) для покемонов и не только. И смена локализации.
+                
+                31. Универсальный парсер
+                32. Компактный режим
+                
+                33. Включение/выключение некоторых групп
                 
             chrome --allow-file-access-from-files file:///C:/Users/Fly/Work/PoGoFilter/pogo_filter.html
         

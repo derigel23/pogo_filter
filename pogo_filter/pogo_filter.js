@@ -1,4 +1,4 @@
-function map(func) {
+﻿function map(func) {
     var fn = func;
     function *submap(it) {
         for (let item of it)
@@ -278,9 +278,51 @@ function on_special_change() {
     save_all();
 }
 
-function parse_filter(s) {
-    let l10n = l10n_by_id[$('#language').val()].data;
+function parse_filter(s, l10n) {
     let i = 0;
+
+    let none = {}
+    let unclear = {}
+
+    function or(op1, op2) {
+        return function(record) {
+            let x = op1(record);
+            if (x && x !== none && x !== unclear)
+                return x;
+            let y = op2(record);
+            if (x === none)
+                return y;
+            if (y === none)
+                return x;
+            if (y && y !== unclear)
+                return y;
+            if (x === unclear || y === unclear)
+                return unclear;
+            return y;
+        }; 
+    }
+
+    function and(op1, op2) {
+        return function(record) { 
+            let x = op1(record);
+            if (!x)
+                return x;
+            let y = op2(record);
+            if (x === none)
+                return y;
+            if (y === none)
+                return x;
+            if (!y)
+                return y;
+            if (typeof(y) === "string")
+                return y;
+            if (typeof(x) === "string")
+                return x;
+            if (x === unclear || y === unclear)
+                return unclear;
+            return y;
+        };
+    }
 
     function skip_white() {
         while (i < s.length && ' \r\n\t'.indexOf(s[i]) != -1)
@@ -292,22 +334,7 @@ function parse_filter(s) {
         skip_white();
         while (i < s.length && s[i] === '&') {
             ++i;
-            let op1 = result, op2 = parse_or();
-            result = function(record) { 
-                let x = op1(record);
-                if (x === false)
-                    return false;
-                let y = op2(record);
-                if (x === none)
-                    return y;
-                if (y === false)
-                    return false;
-                if (y === none)
-                    return x;
-                if (x === true && y === true)
-                    return true;
-                return undefined;
-            };
+            result = and(result, parse_or());
         }
         return result;
     }
@@ -317,22 +344,7 @@ function parse_filter(s) {
         skip_white();
         while (i < s.length && ',;:'.indexOf(s[i]) !== -1) {
             ++i;
-            let op1 = result, op2 = parse_unary();
-            result = function(record) {
-                let x = op1(record);
-                if (x === true)
-                    return true;
-                let y = op2(record);
-                if (x === none)
-                    return y;
-                if (y === true)
-                    return true;
-                if (y === none)
-                    return x;
-                if (x === false && y === false)
-                    return false;
-                return undefined;
-            };
+            result = or(result, parse_unary());
         }
         return result;
     }
@@ -344,7 +356,7 @@ function parse_filter(s) {
             let op = parse_unary();
             return function(record) {
                 let x = op(record); 
-                if (x === none || x === undefined)
+                if (x === none || x === unclear)
                     return x;
                 return !x;
             };
@@ -355,27 +367,37 @@ function parse_filter(s) {
                 let res = none;
                 for (let member of record.family) {
                     let x = op(member);
-                    if (x === true)
-                        return true;
                     if (x === none)
                         continue;
-                    if (res !== undefined)
+                    if (x && x !== unclear)
+                        return x;
+                    if (res !== unclear)
                         res = x;
                 }
                 return res;
             };
+        } else if (i < s.length && s[i] === '§') {
+            let j = i;
+            ++i;
+            let res = parse_list();
+            if (res)
+                return res;
+            console.log(`parse_list returned undefined: ${s.substring(i, i+20)}`);
+            i = j;
         }
         return parse_simple();
     }
 
-    let none = {}
-    let undefined_re = RegExp(`^(?:${l10n.filters['male']}|${l10n.filters['female']}|${l10n.filters['genderunknown']}|@[\\w ]+|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|\\d\\*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
+    let undefined_re = RegExp(`^(?:@[\\w -]+|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|\\d\\*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
     let dex_re = /^(?:(\d+)|(\d*)-(\d*))$/;
     let evolve_re = RegExp(`^(?:${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]})$`, "i");
     let megaevolve_re = RegExp(`^${l10n.filters["megaevolve"]}$`, "i");
     let item_re = RegExp(`^${l10n.filters["item"]}$`, "i");
     let eggsonly_re = RegExp(`^${l10n.filters["eggsonly"]}$`, "i");
     let costume_re = RegExp(`^${l10n.filters["costume"]}$`, "i");
+    let male_re = RegExp(`^${l10n.filters['male']}$`, "i");
+    let female_re = RegExp(`^${l10n.filters['female']}$`, "i");
+    let genderunknown_re = RegExp(`^${l10n.filters['genderunknown']}$`, "i");
     let shiny_re = RegExp(`^${l10n.filters["shiny"]}$`, "i");
     let legendary_re = RegExp(`^${l10n.filters["legendary"]}$`, "i");
     let mythical_re = RegExp(`^${l10n.filters["mythical"]}$`, "i");
@@ -383,7 +405,7 @@ function parse_filter(s) {
     function parse_simple() {
         skip_white();
         let j = i;
-        while (i < s.length && '&,;:!'.indexOf(s[i]) === -1) {
+        while (i < s.length && '&,;:'.indexOf(s[i]) === -1) {
             ++i;
         }
         let str = s.substring(j, i).trim().toLowerCase();
@@ -410,6 +432,12 @@ function parse_filter(s) {
             return record => record.eggsonly;
         // if (str.search(costume_re) != -1)
             // return record => record.costume;
+        if (str.search(male_re) != -1)
+            return record => record.male && (!record.female || unclear);
+        if (str.search(female_re) != -1)
+            return record => record.female && (!record.male || unclear);
+        if (str.search(genderunknown_re) != -1)
+            return record => !record.male && !record.female;
         if (str.search(shiny_re) != -1)
             return record => record.shiny;
         if (str.search(legendary_re) != -1)
@@ -417,11 +445,83 @@ function parse_filter(s) {
         if (str.search(mythical_re) != -1)
             return record => record.mythical;
         if (str.search(undefined_re) != -1)
-            return record => undefined;
+            return record => unclear;
         return record => l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(str) ||
                          l10n.filters[record.type1.toLowerCase()].toLowerCase() === str ||
-                         record.type2 && l10n.filters[record.type2.toLowerCase()].toLowerCase() === str ||
+                         record.type2 !== "" && l10n.filters[record.type2.toLowerCase()].toLowerCase() === str ||
                          l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === str;
+    }
+    
+    function parse_list() {
+        let j = i;
+        while (i < s.length && ':'.indexOf(s[i]) === -1) {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let section = s.substring(j, i).trim() || true;
+        ++i; // :
+        let result = parse_item();
+        if (!result)
+            return;
+        while(true) {
+            skip_white();
+            if (i >= s.length)
+                return;
+            if (s[i] === ';')
+                break;
+            if (s[i] !== ',')
+                return;
+            ++i;
+            let op2 = parse_item();
+            if (!op2)
+                return;
+            result = or(result, op2);
+        }
+        return record => result(record) && section;
+    }
+    
+    function parse_item() {
+        skip_white();
+        let j = i;
+        while (i < s.length && ',;'.indexOf(s[i]) === -1 && (s[i] !== ':' || i+1 >= s.length || s[i+1] !== '(')) {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let name = s.substring(j, i).trim().toLowerCase();
+        let result = record => l10n.names[record.name.toLowerCase()].toLowerCase() === name;
+        while (i < s.length && ',;'.indexOf(s[i]) === -1) {
+            let f = parse_form();
+            if (!f)
+                return;
+            result = and(result, f);
+        }
+        return result;
+    }
+    
+    function parse_form() {
+        if (s[i] !== ':')
+            return;
+        ++i; // :
+        if (s[i] !== '(')
+            return;
+        ++i; // (
+        let j = i;
+        while (i < s.length && s[i] !== ')') {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let form = s.substring(j, i).trim().toLowerCase();
+        ++i; // )
+        if (l10n.forms['male'].toLowerCase() === form)
+            return record => record.male && (!record.female || unclear);
+        if (l10n.forms['female'].toLowerCase() === form)
+            return record => record.female && (!record.male || unclear);
+        if (l10n.forms['shiny'].toLowerCase() === form)
+            return record => record.shiny;
+        return record => record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === form || record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === form;
     }
     
     let r = parse_and();
@@ -431,11 +531,12 @@ function parse_filter(s) {
 }
 
 function onfilter() {
-    var check = parse_filter($('#filter').val());
+    let l10n = l10n_by_id[$('#language').val()].data;
+    var check = parse_filter($('#filter').val(), l10n);
     let special = $('#special').prop('checked');
     for (let i = 0; i < data.length; ++i) {
         var mon = $('#' + data[i].pvpoke_id);
-        if (check(data[i]) !== false && (!data[i].special || special))
+        if (check(data[i]) && (!data[i].special || special))
             mon.show();
         else
             mon.hide();
@@ -549,52 +650,36 @@ function reset() {
 }
 
 function parse_local(text, l10n) {
-    species = {};
-    for (let m of text.matchAll(/^§([^:]*):((\s+([^,;]+)[,;])+?)$/gm)) {
-        console.log(`Match "${m}"`);
-        console.log(m[2]);
-        for (let n of m[2].matchAll(/\s+([^,;]+)/g)) {
-            console.log(`Item "${n[1]}"`);
-            let b = n[1].match(/^(.*?)(?::\(([^)]*?)\))?(?::\(([^)]*?)\))?(?::\(([^)]*?)\))?$/);
-            if (!b) {
-                console.log(`Failed to match ${n[1]}`);
-                return;
-            }
-            console.log(b);
-            let name = l10n.original_names[b[1].toLowerCase()];
-            if (!name) {
-                console.log(`Failed to find the original name ${b[1]}`);
-                return;
-            }
-            let gender = 3;
-            let shiny = false;
-            let forme = '';
-            for (let i = 2; i < b.length; ++i) {
-                if (!b[i])
-                    continue;
-                let form = l10n.original_forms[b[i].toLowerCase()];
-                if (!form) {
-                    console.log(`Failed to find the original form ${b[i]}`);
-                    return;
-                } else if (form == 'Shiny')
-                    shiny = true;
-                else if (form == 'Male')
-                    gender = 2;
-                else if (form == 'Female')
-                    gender = 1;
-                else
-                    forme += form;
-            }
-            let index = index_by_name[`${name}#${forme}#${shiny}`];
-            if (index === undefined) {
-                console.log(`Unable to find "${name}#${forme}#${shiny}"`);
-                return;
-            }
-            console.log(`Added specy ${data[index].pvpoke_id}: {secion: ${m[1]}, gender: ${gender}}`);
-            species[data[index].pvpoke_id] = {section: m[1], gender: gender};
-            if (data[index].special)
-                species['_special_'] = true;
+    let check = parse_filter(text, l10n);
+    let species = undefined;
+    for (let i = 0; i < data.length; ++i) {
+        let male = data[i].male;
+        let female = data[i].female;
+        let gender = 0;
+        let section = "";
+        data[i].male = true;
+        data[i].female = false;
+        let r = check(data[i]);
+        if (r) {
+            gender += 2;
+            if (typeof(r) === "string")
+                section = r;
         }
+        data[i].male = false;
+        data[i].female = true;
+        r = check(data[i]);
+        if (r) {
+            gender += 1;
+            if (typeof(r) === "string")
+                section = r;
+        }
+        if (!gender)
+            continue;
+        if (!species)
+            species = {};
+        species[data[i].pvpoke_id] = {section: section, gender: gender};
+        if (data[i].special)
+            species['_special_'] = true;
     }
     return species;
 }
@@ -666,10 +751,11 @@ $(document).ready(function() {
         data = _data;
         index_by_name = {};
         var family = {};
+        var content = $('div.content');
         for (let i = 0; i < data.length; ++i) {
             if (i == 0 || data[i].region != data[i-1].region)
-                $('div.content').append('<div class="region"><span>' + data[i].region + '</span><hr/></div>');
-            $('div.content').append(`<span class="dioecious_container" title="${data[i].dex}. ${data[i].name}${(data[i].origin ? ' (' + data[i].origin + ')' : '')}${(data[i].form ? ' (' + data[i].form + ')' : '')}${(data[i].shiny ? ' ✨' : '')}" id="${data[i].pvpoke_id}"><input type="radio" name="${data[i].pvpoke_id}" value="3"><input type="radio" name="${data[i].pvpoke_id}" value="2"><input type="radio" name="${data[i].pvpoke_id}" value="1"><input type="radio" name="${data[i].pvpoke_id}" value="0" checked><s></s><u></u><img src="${image(i)}"></span>`);
+                content.append('<div class="region"><span>' + data[i].region + '</span><hr/></div>');
+            content.append(`<span class="dioecious_container" title="${data[i].dex}. ${data[i].name}${(data[i].origin ? ' (' + data[i].origin + ')' : '')}${(data[i].form ? ' (' + data[i].form + ')' : '')}${(data[i].shiny ? ' ✨' : '')}" id="${data[i].pvpoke_id}"><input type="radio" name="${data[i].pvpoke_id}" value="3"><input type="radio" name="${data[i].pvpoke_id}" value="2"><input type="radio" name="${data[i].pvpoke_id}" value="1"><input type="radio" name="${data[i].pvpoke_id}" value="0" checked><s></s><u></u><img src="${image(i)}"></span>`);
             $(`#${data[i].pvpoke_id} > input`).change(() => onchange(i));
             $(`#${data[i].pvpoke_id}`).bind('contextmenu', e => on_pokemon_context(e, i));
             index_by_name[`${data[i].name}#${data[i].origin}${data[i].form}#${data[i].shiny}`] = i;
