@@ -153,52 +153,6 @@
     margin: 0;
     font-size: smaller;
 }
-.container {
-    position: relative;
-    padding: 0;
-    border: 0;
-    width: 100%;
-}
-.container > div {
-    position: absolute;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-.container > div ~ div {
-    position: relative;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-.header .section .menu {
-    position: relative;
-    padding: 0;
-    border: 0;
-    height: 3.5ex;
-    width: 100%;
-}
-.header .section .menu .submenu {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-}
-.header .section .menu > .submenu {
-    margin-right: 3.5ex;
-}
-.header .section .menu > .submenu > .submenu {
-    right: -3.5ex;
-    width: 3.5ex;
-}
 .footer {
     font-family: calibri;
     background-color: #eee;
@@ -252,8 +206,8 @@ body {
     display: none;
     position: absolute;
     width: 200px;
-    right : 2ex;
-    top: 2ex;
+    right : 3ex;
+    top: 0.5ex;
     z-index: 100;
     border: 1px outset lightgray;
 }
