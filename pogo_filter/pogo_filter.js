@@ -1,25 +1,27 @@
-﻿function map(func) {
-    var fn = func;
-    function *submap(it) {
+﻿function map(fn) {
+    return function*(it) {
         for (let item of it)
             yield fn(item);
-    }
-    return submap;
+    };
 }
 
-function filter(func) {
-    var fn = func;
-    function* subfilter(it) {
+function integrate() {
+    return function*(it) {
+        for (let item of it)
+            yield* item;
+    };
+}
+
+function filter(fn) {
+    return function*(it) {
         for (let item of it)
             if (fn(item))
                 yield item;
-    }
-    return subfilter;
+    };
 }
 
-function reduce(func) {
-    var fn = func;
-    function subreduce(it) {
+function reduce(fn) {
+    return function(it) {
         var result
         let first = true;
         for (let item of it) {
@@ -32,12 +34,10 @@ function reduce(func) {
         }
         return result;
     }
-    return subreduce;
 }
 
-function join(sep) {
-    var s = sep;
-    function subjoin(it) {
+function join(s) {
+    return function(it) {
         var result = ''
         let first = true;
         for (let item of it) {
@@ -48,8 +48,7 @@ function join(sep) {
             result += item;
         }
         return result;
-    }
-    return subjoin;
+    };
 }
 
 function chain(it, fn, ...jobs) {
@@ -89,19 +88,51 @@ var index_by_name;
 function prepare() {
     groups = new Map();
     for (let i = 0; i < data.length; ++i) {
-        if (!groups.has(data[i].name))
-            groups.set(data[i].name, new Map());
-        if (!groups.get(data[i].name).has(data[i].filter1))
-            groups.get(data[i].name).set(data[i].filter1, new Map());
-        if (!groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2))
-            groups.get(data[i].name).get(data[i].filter1).set(data[i].filter2, new Map());
-        if (!groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : ""))
-            groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).set(data[i].shiny ? "shiny" : "", new Map());
-        groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "").set("male", 0);
-        groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "").set("female", 0);
+        let grp = groups;
+        if (!grp.has(data[i].name))
+            grp.set(data[i].name, {value: false, sub: new Map()});
+        grp = grp.get(data[i].name).sub;
+        if (!grp.has(data[i].filter1))
+            grp.set(data[i].filter1, {value: false, sub: new Map()});
+        grp = grp.get(data[i].filter1).sub;
+        if (!grp.has(data[i].filter2))
+            grp.set(data[i].filter2, {value: false, sub: new Map()});
+        grp = grp.get(data[i].filter2).sub;
+        let shiny = data[i].shiny ? "shiny" : "";
+        if (!grp.has(shiny))
+            grp.set(shiny, {value: false, sub: new Map()});
+        grp = grp.get(shiny).sub;
+        grp.set("male", {value: 0});
+        grp.set("female", {value: 0});
     }
     sections = new Map();
     filters = new Map();
+    for (let [key, value] of groups) {
+        filters.set(key, generate_filter(key));
+    }
+}
+
+function zero_groups(grp) {
+    for (let [key, value] of grp) {
+        if (value.value && value.sub)
+            zero_groups(value.sub);
+        value.value = 0;
+    }
+}
+
+function update_node(node, value, ...args) {
+    if (args.length === 0) {
+        node.value += value;
+        return;
+    }
+    update_node(node.sub.get(value), ...args);
+    node.value = false;
+    for (let [key, value] of node.sub) {
+        if (!value.value)
+            continue;
+        node.value = true;
+        break;
+    }
 }
 
 function image(i) {
@@ -138,31 +169,21 @@ function load_list() {
     
     //console.log(species);
     
-    for (let i = 0; i < data.length; ++i) {
-        let g = groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "");
-        g.set("male", 0);
-        g.set("female", 0);
-    }
     sections.clear();
-    filters.clear();
+    zero_groups(groups);
 
     let l10n = l10n_by_id[$('#language').val()].data;
 
     let special = !!species['_special_'];
+    let compact = !!species['_compact_'];
     $('#special').prop('checked', special);
+    $('#compact').prop('checked', compact);
     for (let i = 0; i < data.length; ++i) {
         let {section, gender} = species[data[i].pvpoke_id] || default_specy();
         let container = $(`#${data[i].pvpoke_id}`);
         container.find(`> input[value=${gender}]`).prop('checked', true);
         container.find(`> u`).text(section);
-        let g = groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "");
-        g.set('male', g.get('male') + (gender >> 1 & 1));
-        g.set('female', g.get('female') + (gender & 1));
-        if (gender !== 0 && (special || !data[i].special))
-            add_to_section(i, section)
-        else
-            remove_from_section(i, section);
-        filters.set(data[i].name, update_filter(data[i].name, special, l10n));
+        update_gender_selection(i, section, special, 0, gender);
     }
     
     generate();
@@ -183,61 +204,117 @@ function load_all() {
     on_list_change();
 }
 
-function update_filter(pokemon, special, l10n) {
-    function uf(group) {
-        if (group === 0)
-            return [''];
-        if (group > 0)
-            return [];
-        let group_it = group.entries();
-        if (!special)
-            group_it = filter(([key, value]) => key != "shiny")(group_it);
-        let items = Array.from(group_it, ([key, value]) => [key, uf(value)]);
-        if (items.length === 1)
-            return items[0][1];
-        if (items.map(([key, value]) => value.length === 1 && value[0] === '').reduce((x, y) => x && y))
-            return ['']
-        let result = []
-        for (let [key, value] of items) {
-            let filter
-            if (key === '')
-                filter = ',' + Array.from(group.keys()).filter(x => x).map(x => l10n.filters[x.toLowerCase()]).join(',');
-            else
-                filter = ',!' + l10n.filters[key.toLowerCase()];
-            for (let item of value)
-                result.push(filter + item);
-        }
-        return result;
+function generate_filter(pokemon) {
+    function gen_term(key, keys) {
+        if (key !== "")
+            return l10n => ',!' + l10n.filters[key];
+        keys = Array.from(chain(keys, filter(x => x), map(x => x.toLowerCase())));
+        return l10n => chain(keys, map(key => ',' + l10n.filters[key]), join(''));
     }
-    let filters = uf(groups.get(pokemon));
-    if (filters.length === 1 && filters[0] === '')
-        return ''
-    return filters.map(filter => '&!' + l10n.names[pokemon.toLowerCase()] + filter).join('')
+    
+    function gen(node) {
+        if (!node.sub)
+            return function*(l10n, special) {
+                if (!node.value)
+                    yield "";
+            };
+        let items = Array.from(chain(node.sub.entries(), map(([key, value]) => [key.toLowerCase(), value]), map(([key, value]) => [key, gen_term(key, node.sub.keys()), gen(value)])));
+        if (items.length === 1)
+            return items[0][2];
+        let shiny = node.sub.has("shiny");
+        let index = items[0][0] === "" ? 0 : 1;
+        return function*(l10n, special) {
+            if (!node.value)
+                yield "";
+            else if (shiny && !special)
+                yield* items[index][2](l10n, special);
+            else {
+                for (let [key, term_gen, sub_gen] of items) {
+                    let term = term_gen(l10n);
+                    for (let tail of sub_gen(l10n, special)) {
+                        yield term + tail;
+                    }
+                }
+            }
+        };
+    }
+    
+    let node = groups.get(pokemon);
+    let filter_gen = gen(node);
+    return (l10n, special) => chain(filter_gen(l10n, special), filter(x => x), map(filter => '&!' + l10n.names[pokemon.toLowerCase()] + filter));
 }
 
-function update(i) {
-    let special = $('#special').prop('checked');
-    let l10n = l10n_by_id[$('#language').val()].data;
-    if (!species[data[i].pvpoke_id])
-        species[data[i].pvpoke_id] = default_specy();
-    let {section, gender: old_gender} = species[data[i].pvpoke_id];
-    let new_gender = +$(`#${data[i].pvpoke_id} > input:checked`).val();
-    let g = groups.get(data[i].name).get(data[i].filter1).get(data[i].filter2).get(data[i].shiny ? "shiny" : "");
-    g.set('male', g.get('male') + (new_gender >> 1 & 1) - (old_gender >> 1 & 1));
-    g.set('female', g.get('female') + (new_gender & 1) - (old_gender & 1));
-    species[data[i].pvpoke_id].gender = new_gender;
+// function update_filter(pokemon, special, l10n) {
+    // function uf(group) {
+        // if (group === 0)
+            // return [''];
+        // if (group > 0)
+            // return [];
+        // let group_it = group.entries();
+        // if (!special)
+            // group_it = filter(([key, value]) => key != "shiny")(group_it);
+        // let items = Array.from(group_it, ([key, value]) => [key, uf(value)]);
+        // if (items.length === 1)
+            // return items[0][1];
+        // if (items.map(([key, value]) => value.length === 1 && value[0] === '').reduce((x, y) => x && y))
+            // return ['']
+        // let result = []
+        // for (let [key, value] of items) {
+            // let filter
+            // if (key === '')
+                // filter = ',' + Array.from(group.keys()).filter(x => x).map(x => l10n.filters[x.toLowerCase()]).join(',');
+            // else
+                // filter = ',!' + l10n.filters[key.toLowerCase()];
+            // for (let item of value)
+                // result.push(filter + item);
+        // }
+        // return result;
+    // }
+    // let filters = uf(groups.get(pokemon));
+    // if (filters.length === 1 && filters[0] === '')
+        // return ''
+    // return filters.map(filter => '&!' + l10n.names[pokemon.toLowerCase()] + filter).join('')
+// }
+
+function update_gender_selection(i, section, special, old_gender, new_gender) {
+    let male = (new_gender >> 1 & 1) - (old_gender >> 1 & 1);
+    let female = (new_gender & 1) - (old_gender & 1);
+    if (male !== 0)
+        update_node(groups.get(data[i].name), data[i].filter1, data[i].filter2, data[i].shiny ? "shiny" : "", "male", male);
+    if (female !== 0)
+        update_node(groups.get(data[i].name), data[i].filter1, data[i].filter2, data[i].shiny ? "shiny" : "", "female", female);
     if (new_gender !== 0 && (special || !data[i].special))
         add_to_section(i, section)
     else
         remove_from_section(i, section);
-    filters.set(data[i].name, update_filter(data[i].name, special, l10n));
+}
+
+function update(i) {
+    let special = $('#special').prop('checked');
+    let {section, gender: old_gender} = species[data[i].pvpoke_id] || default_specy();
+    let new_gender = +$(`#${data[i].pvpoke_id} > input:checked`).val();
+    update_gender_selection(i, section, special, old_gender, new_gender);
+    if (old_gender !== new_gender) {
+        if (!species[data[i].pvpoke_id])
+            species[data[i].pvpoke_id] = default_specy();
+        species[data[i].pvpoke_id].gender = new_gender;
+    }
 }
 
 function generate() {
+    let compact = $('#compact').prop('checked');
     let special = $('#special').prop('checked');
     let l10n = l10n_by_id[$('#language').val()].data;
-    let result = l10n.phrases.caption + '\n\n';
-    result += chain([...sections.entries()].sort(), map(function ([key, value]) {
+    let result;
+    if (compact)
+        result = generate_compact(l10n, special);
+    else
+        result = generate_full(l10n, special);
+    $('textarea').val(result);
+}
+
+function generate_full(l10n, special) {
+    let result = chain([...sections.keys()].sort(), map(key => [key, sections.get(key)]), map(function ([key, value]) {
         return [key, chain(value.values(), map(function(i) {
             var pokemon_name = l10n.names[data[i].name.toLowerCase()];
             if (data[i].origin)
@@ -255,12 +332,56 @@ function generate() {
     }), filter(([key, value]) => value), 
     map(([key, value]) => '§' + key + ': ' + value + ';\n'),
     join(''));
+    if (!result)
+        return '';
+    result = l10n.phrases.caption + '\n\n' + result;
     result += '\n' + l10n.phrases.caption2 + '\n';
-    result += chain(filters.values(), join(''));
+    result += chain(filters.entries(), filter(([key, value]) => groups.get(key).value), map(([key, fn]) => fn(l10n, special)), integrate(), join(''));
     if (!special)
         result += '&!' + l10n.filters['shiny'] + '&!' + l10n.filters['purified'];
-    result += '&!' + l10n.filters['traded'] + '&!4*;\n\n' + l10n.phrases.postscript;
-    $('textarea').val(result);
+    result += '&!' + l10n.filters['shadow'] + '&!' + l10n.filters['traded'] + '&!4*;\n\n' + l10n.phrases.postscript;
+    return result;
+}
+
+function generate_compact(l10n, special) {
+    let result = '';
+    let first, last;
+    for (let i = 0; i < data.length; ++i) {
+        let {section, gender} = species[data[i].pvpoke_id] || default_specy();
+        if (gender === 0)
+            continue;
+        if (last && last+1 >= data[i].dex)
+            last = +data[i].dex;
+        else {
+            if (first) {
+                if (first < last)
+                    result += `${first}-${last},`;
+                else
+                    result += `${first},`;
+            }
+            first = last = +data[i].dex;
+        }
+    }
+    if (!first)
+        return '';
+    if (first < last)
+        result += `${first}-${last}`;
+    else
+        result += `${first}`;
+
+    function footer(l10n, pecial) {
+        let result = chain(filters.entries(), filter(([key, value]) => groups.get(key).value), map(([key, fn]) => fn(l10n, special)), integrate(), join(''));
+        if (!special)
+            result += '&!' + l10n.filters['shiny'] + '&!' + l10n.filters['purified'];
+        result += '&!' + l10n.filters['shadow'] + '&!' + l10n.filters['traded'];
+        return result;
+    }
+    result += footer(l10n, special);
+    let l10n_en = l10n_by_id['en'].data;
+    if (l10n !== l10n_en)
+        result += footer(l10n_en, special);
+    result += '&!4*;' + l10n.phrases.postscript;
+    return result;
 }
 
 function onchange(i) {
@@ -278,12 +399,199 @@ function on_special_change() {
     save_all();
 }
 
-function parse_filter(s, l10n) {
+function on_compact_change() {
+    species['_compact_'] = $('#compact').prop('checked');
+    generate();
+    save_all();
+}
+
+function parse_filter(s) {
     let i = 0;
 
+    function skip_white() {
+        while (i < s.length && ' \r\n\t'.indexOf(s[i]) != -1)
+            ++i;
+    }
+
+    function parse_and() {
+        let result = parse_or();
+        skip_white();
+        while (i < s.length && s[i] === '&') {
+            ++i;
+            result = {op: "and", arg: [result, parse_or()]};
+        }
+        return result;
+    }
+    
+    function parse_or() {
+        let result = parse_unary();
+        skip_white();
+        while (i < s.length && ',;:'.indexOf(s[i]) !== -1) {
+            ++i;
+            result = {op: "or", arg: [result, parse_unary()]};
+        }
+        return result;
+    }
+    
+    function parse_unary() {
+        skip_white();
+        if (i < s.length && s[i] === '!') {
+            ++i;
+            return {op: "not", arg: parse_unary()};
+        } else if (i < s.length && s[i] === '+') {
+            ++i;
+            return {op: "family", arg: parse_unary()};
+        } else if (i < s.length && s[i] === '§') {
+            let j = i;
+            ++i;
+            let res = parse_list();
+            if (res)
+                return res;
+            i = j;
+        }
+        return parse_simple();
+    }
+
+    function parse_simple() {
+        skip_white();
+        let j = i;
+        while (i < s.length && '&,;:'.indexOf(s[i]) === -1) {
+            ++i;
+        }
+        let str = s.substring(j, i).trim().toLowerCase();
+        return {op: "keyword", arg: str};
+    }
+    
+    function parse_list() {
+        let j = i;
+        while (i < s.length && ':'.indexOf(s[i]) === -1) {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let section = s.substring(j, i).trim() || true;
+        ++i; // :
+        let result = parse_item();
+        if (!result)
+            return;
+        while(true) {
+            skip_white();
+            if (i >= s.length)
+                return;
+            if (s[i] === ';')
+                break;
+            if (s[i] !== ',')
+                return;
+            ++i;
+            let op2 = parse_item();
+            if (!op2)
+                return;
+            result = {op: "or", arg: [result, op2]};
+        }
+        return {op: "and", arg: [result, {op: "section", arg: section}]};
+    }
+    
+    function parse_item() {
+        skip_white();
+        let j = i;
+        while (i < s.length && ',;'.indexOf(s[i]) === -1 && (s[i] !== ':' || i+1 >= s.length || s[i+1] !== '(')) {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let name = s.substring(j, i).trim().toLowerCase();
+        let result = {op: "specy", arg: name};
+        while (i < s.length && ',;'.indexOf(s[i]) === -1) {
+            let f = parse_form();
+            if (!f)
+                return;
+            result = {op: "and", arg: [result, f]};
+        }
+        return result;
+    }
+    
+    function parse_form() {
+        if (s[i] !== ':')
+            return;
+        ++i; // :
+        if (s[i] !== '(')
+            return;
+        ++i; // (
+        let j = i;
+        while (i < s.length && s[i] !== ')') {
+            ++i;
+        }
+        if (i >= s.length)
+            return;
+        let form = s.substring(j, i).trim().toLowerCase();
+        ++i; // )
+        return {op: "form", arg: form};
+    }
+    
+    let r = parse_and();
+    if (i != s.length)
+        return;
+    return r;
+}
+
+function make_appraiser(tree, l10n) {
+    let undefined_re = RegExp(`^(?:${l10n.filters["mythical"]}|${l10n.filters["legendary"]}|${l10n.filters["shiny"]}|${l10n.filters['genderunknown']}|${l10n.filters['female']}|${l10n.filters['male']}|${l10n.filters["costume"]}|${l10n.filters["eggsonly"]}|${l10n.filters["item"]}|${l10n.filters["megaevolve"]}|${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]}|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
+
+    function appraiser(node) {
+        switch (node.op) {
+        case "and":
+        case "or": {
+            let op1 = appraiser(node.arg[0]);
+            let op2 = appraiser(node.arg[1]);
+            return record => op1(record) + op2(record);
+        }
+        case "not": {
+            let op = appraiser(node.arg);
+            return record => op(record);
+        }
+        case "family": {
+            let op = appraiser(node.arg);
+            return function(record) {
+                let res = 0;
+                for (let member of record.family)
+                    res += op(member);
+                return res;
+            };
+        }
+        case "keyword": {
+            if (!node.arg)
+                return record => 0;
+            if (node.arg.search(undefined_re) != -1)
+                return record => 1;
+            return record => +(l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(node.arg) ||
+                               l10n.filters[record.type1.toLowerCase()].toLowerCase() === node.arg ||
+                               record.type2 !== "" && l10n.filters[record.type2.toLowerCase()].toLowerCase() === node.arg ||
+                               l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === node.arg);
+        }
+        case "section":
+            return record => 0;
+        case "specy":
+            return record => +(l10n.names[record.name.toLowerCase()].toLowerCase() === node.arg);
+        case "form":
+            if (l10n.forms['male'].toLowerCase() === node.arg)
+                return record => 1;
+            if (l10n.forms['female'].toLowerCase() === node.arg)
+                return record => 1;
+            if (l10n.forms['shiny'].toLowerCase() === node.arg)
+                return record => 1;
+            return record => +(record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === node.arg || 
+                               record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === node.arg);
+        }
+    }
+    if (!tree)
+        return record => 0;
+    return appraiser(tree);
+}
+
+function make_checker(tree, l10n) {
     let none = {}
     let unclear = {}
-
+    
     function or(op1, op2) {
         return function(record) {
             let x = op1(record);
@@ -324,71 +632,32 @@ function parse_filter(s, l10n) {
         };
     }
 
-    function skip_white() {
-        while (i < s.length && ' \r\n\t'.indexOf(s[i]) != -1)
-            ++i;
-    }
-
-    function parse_and() {
-        let result = parse_or();
-        skip_white();
-        while (i < s.length && s[i] === '&') {
-            ++i;
-            result = and(result, parse_or());
-        }
-        return result;
+    function not(op) {
+        return function(record) {
+            let x = op(record); 
+            if (x === none || x === unclear)
+                return x;
+            return !x;
+        };
     }
     
-    function parse_or() {
-        let result = parse_unary();
-        skip_white();
-        while (i < s.length && ',;:'.indexOf(s[i]) !== -1) {
-            ++i;
-            result = or(result, parse_unary());
-        }
-        return result;
-    }
-    
-    function parse_unary() {
-        skip_white();
-        if (i < s.length && s[i] === '!') {
-            ++i;
-            let op = parse_unary();
-            return function(record) {
-                let x = op(record); 
-                if (x === none || x === unclear)
+    function family(op) {
+        return function(record) {
+            let res = none;
+            for (let member of record.family) {
+                let x = op(member);
+                if (x === none)
+                    continue;
+                if (x && x !== unclear)
                     return x;
-                return !x;
-            };
-        } else if (i < s.length && s[i] === '+') {
-            ++i;
-            let op = parse_unary();
-            return function(record) {
-                let res = none;
-                for (let member of record.family) {
-                    let x = op(member);
-                    if (x === none)
-                        continue;
-                    if (x && x !== unclear)
-                        return x;
-                    if (res !== unclear)
-                        res = x;
-                }
-                return res;
-            };
-        } else if (i < s.length && s[i] === '§') {
-            let j = i;
-            ++i;
-            let res = parse_list();
-            if (res)
-                return res;
-            console.log(`parse_list returned undefined: ${s.substring(i, i+20)}`);
-            i = j;
-        }
-        return parse_simple();
+                if (res !== unclear)
+                    res = x;
+            }
+            return res;
+        };
     }
 
-    let undefined_re = RegExp(`^(?:@[\\w -]+|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|\\d\\*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
+    let undefined_re = RegExp(`^(?:@[\\w -]+|\\d\\*|${l10n.filters["mythical"]}|${l10n.filters["legendary"]}|${l10n.filters["shiny"]}|${l10n.filters['genderunknown']}|${l10n.filters['female']}|${l10n.filters['male']}|${l10n.filters["costume"]}|${l10n.filters["eggsonly"]}|${l10n.filters["item"]}|${l10n.filters["megaevolve"]}|${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]}|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
     let dex_re = /^(?:(\d+)|(\d*)-(\d*))$/;
     let evolve_re = RegExp(`^(?:${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]})$`, "i");
     let megaevolve_re = RegExp(`^${l10n.filters["megaevolve"]}$`, "i");
@@ -402,13 +671,7 @@ function parse_filter(s, l10n) {
     let legendary_re = RegExp(`^${l10n.filters["legendary"]}$`, "i");
     let mythical_re = RegExp(`^${l10n.filters["mythical"]}$`, "i");
     
-    function parse_simple() {
-        skip_white();
-        let j = i;
-        while (i < s.length && '&,;:'.indexOf(s[i]) === -1) {
-            ++i;
-        }
-        let str = s.substring(j, i).trim().toLowerCase();
+    function keyword(str) {
         if (str === "")
             return record => none;
         let dex = str.match(dex_re);
@@ -452,87 +715,41 @@ function parse_filter(s, l10n) {
                          l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === str;
     }
     
-    function parse_list() {
-        let j = i;
-        while (i < s.length && ':'.indexOf(s[i]) === -1) {
-            ++i;
+    function checker(node) {
+        switch (node.op) {
+        case "and":
+            return and(checker(node.arg[0]), checker(node.arg[1]));
+        case "or":
+            return or(checker(node.arg[0]), checker(node.arg[1]));
+        case "not":
+            return not(checker(node.arg));
+        case "family":
+            return family(checker(node.arg));
+        case "keyword":
+            return keyword(node.arg);
+        case "section":
+            return record => node.arg;
+        case "specy":
+            return record => l10n.names[record.name.toLowerCase()].toLowerCase() === node.arg;
+        case "form":
+            if (l10n.forms['male'].toLowerCase() === node.arg)
+                return record => record.male && (!record.female || unclear);
+            if (l10n.forms['female'].toLowerCase() === node.arg)
+                return record => record.female && (!record.male || unclear);
+            if (l10n.forms['shiny'].toLowerCase() === node.arg)
+                return record => record.shiny;
+            return record => record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === node.arg || 
+                             record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === node.arg;
         }
-        if (i >= s.length)
-            return;
-        let section = s.substring(j, i).trim() || true;
-        ++i; // :
-        let result = parse_item();
-        if (!result)
-            return;
-        while(true) {
-            skip_white();
-            if (i >= s.length)
-                return;
-            if (s[i] === ';')
-                break;
-            if (s[i] !== ',')
-                return;
-            ++i;
-            let op2 = parse_item();
-            if (!op2)
-                return;
-            result = or(result, op2);
-        }
-        return record => result(record) && section;
     }
-    
-    function parse_item() {
-        skip_white();
-        let j = i;
-        while (i < s.length && ',;'.indexOf(s[i]) === -1 && (s[i] !== ':' || i+1 >= s.length || s[i+1] !== '(')) {
-            ++i;
-        }
-        if (i >= s.length)
-            return;
-        let name = s.substring(j, i).trim().toLowerCase();
-        let result = record => l10n.names[record.name.toLowerCase()].toLowerCase() === name;
-        while (i < s.length && ',;'.indexOf(s[i]) === -1) {
-            let f = parse_form();
-            if (!f)
-                return;
-            result = and(result, f);
-        }
-        return result;
-    }
-    
-    function parse_form() {
-        if (s[i] !== ':')
-            return;
-        ++i; // :
-        if (s[i] !== '(')
-            return;
-        ++i; // (
-        let j = i;
-        while (i < s.length && s[i] !== ')') {
-            ++i;
-        }
-        if (i >= s.length)
-            return;
-        let form = s.substring(j, i).trim().toLowerCase();
-        ++i; // )
-        if (l10n.forms['male'].toLowerCase() === form)
-            return record => record.male && (!record.female || unclear);
-        if (l10n.forms['female'].toLowerCase() === form)
-            return record => record.female && (!record.male || unclear);
-        if (l10n.forms['shiny'].toLowerCase() === form)
-            return record => record.shiny;
-        return record => record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === form || record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === form;
-    }
-    
-    let r = parse_and();
-    if (i != s.length)
+    if (!tree)
         return record => false;
-    return r;
+    return checker(tree);
 }
 
 function onfilter() {
     let l10n = l10n_by_id[$('#language').val()].data;
-    var check = parse_filter($('#filter').val(), l10n);
+    let check = make_checker(parse_filter($('#filter').val()), l10n);
     let special = $('#special').prop('checked');
     for (let i = 0; i < data.length; ++i) {
         var mon = $('#' + data[i].pvpoke_id);
@@ -649,9 +866,47 @@ function reset() {
     document.location.reload();
 }
 
-function parse_local(text, l10n) {
-    let check = parse_filter(text, l10n);
-    let species = undefined;
+function parse(e) {
+    if (!confirm("Parse filter?"))
+        return;
+    var text = e.originalEvent.clipboardData.getData('text');
+    e.preventDefault();
+    let tree = parse_filter(text);
+    if (!tree) {
+        alert('Failed to parse');
+        return;
+    }
+    let best_l10n;
+    let best_appraisal = 0
+    for (let i = 0; i < l10n.length; ++i) {
+        // console.log(`Trying ${l10n[i].name}`);
+        let appraiser = make_appraiser(tree, l10n[i].data);
+
+        let appraisal = 0;
+        for (let i = 0; i < data.length; ++i) {
+            let male = data[i].male;
+            let female = data[i].female;
+            data[i].male = true;
+            data[i].female = false;
+            appraisal += appraiser(data[i]);
+            data[i].male = false;
+            data[i].female = true;
+            appraisal += appraiser(data[i]);
+            data[i].male = male;
+            data[i].female = female;
+        }
+        
+        // console.log(`${l10n[i].name} gaines ${appraisal} points.`);
+        if (best_appraisal < appraisal) {
+            best_l10n = l10n[i];
+            best_appraisal = appraisal;
+        }
+    }
+    // console.log(`The best l10n is ${best_l10n.name}`);
+    
+    let checker = make_checker(tree, best_l10n.data);
+    
+    let species = {};
     for (let i = 0; i < data.length; ++i) {
         let male = data[i].male;
         let female = data[i].female;
@@ -659,7 +914,7 @@ function parse_local(text, l10n) {
         let section = "";
         data[i].male = true;
         data[i].female = false;
-        let r = check(data[i]);
+        let r = checker(data[i]);
         if (r) {
             gender += 2;
             if (typeof(r) === "string")
@@ -667,39 +922,21 @@ function parse_local(text, l10n) {
         }
         data[i].male = false;
         data[i].female = true;
-        r = check(data[i]);
+        r = checker(data[i]);
         if (r) {
             gender += 1;
             if (typeof(r) === "string")
                 section = r;
         }
+        data[i].male = male;
+        data[i].female = female;
         if (!gender)
             continue;
-        if (!species)
-            species = {};
         species[data[i].pvpoke_id] = {section: section, gender: gender};
         if (data[i].special)
             species['_special_'] = true;
     }
-    return species;
-}
 
-function parse(e) {
-    if (!confirm("Parse filter?"))
-        return;
-    var text = e.originalEvent.clipboardData.getData('text');
-    e.preventDefault();
-    let species;
-    for (let i = 0; i < l10n.length; ++i) {
-        console.log(`Trying ${l10n[i].name}`);
-        species = parse_local(text, l10n[i].data);
-        if (species)
-            break;
-    }
-    if (!species) {
-        alert('Failed to parse');
-        return;
-    }
     storage.lists[$('#list select').val()] = species;
     save_all();
     load_list();
@@ -768,6 +1005,7 @@ $(document).ready(function() {
     });
 
     $('#special').bind('change', on_special_change);
+    $('#compact').bind('change', on_compact_change);
     $('#filter').bind('input', onfilter);
     $('#list select').bind('change', on_list_change);
     $('#list input[type=text]').bind('input', on_list_input);
