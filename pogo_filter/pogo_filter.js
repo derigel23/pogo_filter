@@ -244,38 +244,6 @@ function generate_filter(pokemon) {
     return (l10n, special) => chain(filter_gen(l10n, special), filter(x => x), map(filter => '&!' + l10n.names[pokemon.toLowerCase()] + filter));
 }
 
-// function update_filter(pokemon, special, l10n) {
-    // function uf(group) {
-        // if (group === 0)
-            // return [''];
-        // if (group > 0)
-            // return [];
-        // let group_it = group.entries();
-        // if (!special)
-            // group_it = filter(([key, value]) => key != "shiny")(group_it);
-        // let items = Array.from(group_it, ([key, value]) => [key, uf(value)]);
-        // if (items.length === 1)
-            // return items[0][1];
-        // if (items.map(([key, value]) => value.length === 1 && value[0] === '').reduce((x, y) => x && y))
-            // return ['']
-        // let result = []
-        // for (let [key, value] of items) {
-            // let filter
-            // if (key === '')
-                // filter = ',' + Array.from(group.keys()).filter(x => x).map(x => l10n.filters[x.toLowerCase()]).join(',');
-            // else
-                // filter = ',!' + l10n.filters[key.toLowerCase()];
-            // for (let item of value)
-                // result.push(filter + item);
-        // }
-        // return result;
-    // }
-    // let filters = uf(groups.get(pokemon));
-    // if (filters.length === 1 && filters[0] === '')
-        // return ''
-    // return filters.map(filter => '&!' + l10n.names[pokemon.toLowerCase()] + filter).join('')
-// }
-
 function update_gender_selection(i, section, special, old_gender, new_gender) {
     let male = (new_gender >> 1 & 1) - (old_gender >> 1 & 1);
     let female = (new_gender & 1) - (old_gender & 1);
@@ -534,129 +502,81 @@ function parse_filter(s) {
     return r;
 }
 
-function make_appraiser(tree, l10n) {
-    let undefined_re = RegExp(`^(?:${l10n.filters["mythical"]}|${l10n.filters["legendary"]}|${l10n.filters["shiny"]}|${l10n.filters['genderunknown']}|${l10n.filters['female']}|${l10n.filters['male']}|${l10n.filters["costume"]}|${l10n.filters["eggsonly"]}|${l10n.filters["item"]}|${l10n.filters["megaevolve"]}|${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]}|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
-
-    function appraiser(node) {
-        switch (node.op) {
-        case "and":
-        case "or": {
-            let op1 = appraiser(node.arg[0]);
-            let op2 = appraiser(node.arg[1]);
-            return record => op1(record) + op2(record);
-        }
-        case "not": {
-            let op = appraiser(node.arg);
-            return record => op(record);
-        }
-        case "family": {
-            let op = appraiser(node.arg);
-            return function(record) {
-                let res = 0;
-                for (let member of record.family)
-                    res += op(member);
-                return res;
-            };
-        }
-        case "keyword": {
-            if (!node.arg)
-                return record => 0;
-            if (node.arg.search(undefined_re) != -1)
-                return record => 1;
-            return record => +(l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(node.arg) ||
-                               l10n.filters[record.type1.toLowerCase()].toLowerCase() === node.arg ||
-                               record.type2 !== "" && l10n.filters[record.type2.toLowerCase()].toLowerCase() === node.arg ||
-                               l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === node.arg);
-        }
-        case "section":
-            return record => 0;
-        case "specy":
-            return record => +(l10n.names[record.name.toLowerCase()].toLowerCase() === node.arg);
-        case "form":
-            if (l10n.forms['male'].toLowerCase() === node.arg)
-                return record => 1;
-            if (l10n.forms['female'].toLowerCase() === node.arg)
-                return record => 1;
-            if (l10n.forms['shiny'].toLowerCase() === node.arg)
-                return record => 1;
-            return record => +(record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === node.arg || 
-                               record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === node.arg);
-        }
-    }
-    if (!tree)
-        return record => 0;
-    return appraiser(tree);
-}
-
 function make_checker(tree, l10n) {
     let none = {}
     let unclear = {}
     
+    function evaluate(x) {
+        return {valid: x, value: +!!x};
+    }
+
     function or(op1, op2) {
         return function(record) {
             let x = op1(record);
-            if (x && x !== none && x !== unclear)
+            if (x.valid && x.valid !== none && x.valid !== unclear)
                 return x;
             let y = op2(record);
-            if (x === none)
+            if (x.valid === none)
                 return y;
-            if (y === none)
+            if (y.valid === none)
                 return x;
-            if (y && y !== unclear)
-                return y;
-            if (x === unclear || y === unclear)
-                return unclear;
-            return y;
+            if (y.valid && y.valid !== unclear)
+                return {valid: y.valid, value: x.value + y.value};
+            if (x.valid === unclear || y.valid === unclear)
+                return {valid: unclear, value: x.value + y.value};
+            return {valid: y.valid, value: x.value + y.value};
         }; 
     }
 
     function and(op1, op2) {
         return function(record) { 
             let x = op1(record);
-            if (!x)
+            if (!x.valid)
                 return x;
             let y = op2(record);
-            if (x === none)
+            if (x.valid === none)
                 return y;
-            if (y === none)
+            if (y.valid === none)
                 return x;
-            if (!y)
-                return y;
-            if (typeof(y) === "string")
-                return y;
-            if (typeof(x) === "string")
-                return x;
-            if (x === unclear || y === unclear)
-                return unclear;
-            return y;
+            if (!y.valid)
+                return {valid: y.valid, value: x.value + y.value};
+            if (typeof(y.valid) === "string")
+                return {valid: y.valid, value: x.value + y.value};
+            if (typeof(x.valid) === "string")
+                return {valid: x.valid, value: x.value + y.value};
+            if (x.valid === unclear || y.valid === unclear)
+                return {valid: unclear, value: x.value + y.value};
+            return {valid: y.valid, value: x.value + y.value};
         };
     }
 
     function not(op) {
         return function(record) {
             let x = op(record); 
-            if (x === none || x === unclear)
+            if (x.valid === none || x.valid === unclear)
                 return x;
-            return !x;
+            return {valid: !x.valid, value: x.value};
         };
     }
     
     function family(op) {
         return function(record) {
-            let res = none;
+            let res = {valid: none, value: 0};
             for (let member of record.family) {
                 let x = op(member);
-                if (x === none)
+                if (x.valid === none)
                     continue;
-                if (x && x !== unclear)
-                    return x;
-                if (res !== unclear)
-                    res = x;
+                if (x.valid && x.valid !== unclear)
+                    return {valid: x.valid, value: res.value + x.value};
+                if (res.valid !== unclear) {
+                    res.valid = x.valid;
+                    res.value += x.value;
+                }
             }
             return res;
         };
     }
-
+    
     let undefined_re = RegExp(`^(?:@[\\w -]+|\\d\\*|${l10n.filters["mythical"]}|${l10n.filters["legendary"]}|${l10n.filters["shiny"]}|${l10n.filters['genderunknown']}|${l10n.filters['female']}|${l10n.filters['male']}|${l10n.filters["costume"]}|${l10n.filters["eggsonly"]}|${l10n.filters["item"]}|${l10n.filters["megaevolve"]}|${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]}|${l10n.filters['lucky']}|${l10n.filters['shadow']}|${l10n.filters['purified']}|${l10n.filters['defender']}|${l10n.filters['hp']}\\s*\\d*-?\\d*|${l10n.filters['cp']}\\s*\\d*-?\\d*|${l10n.filters['year']}\\s*\\d*-?\\d*|${l10n.filters['age']}\\s*\\d*-?\\d*|${l10n.filters['distance']}\\s*\\d*-?\\d*|${l10n.filters['buddy']}\\s*\\d*-?\\d*|${l10n.filters['traded']}|${l10n.filters['hatched']}|${l10n.filters['research']}|${l10n.filters['raid']}|${l10n.filters['remoteraid']}|${l10n.filters['exraid']}|${l10n.filters['megaraid']}|${l10n.filters['rocket']}|${l10n.filters['gbl']}|${l10n.filters['snapshot']}|${l10n.filters['candyxl']})$`, "i");
     let dex_re = /^(?:(\d+)|(\d*)-(\d*))$/;
     let evolve_re = RegExp(`^(?:${l10n.filters["evolve"]}|${l10n.filters["tradeevolve"]}|${l10n.filters["evolvenew"]})$`, "i");
@@ -673,7 +593,7 @@ function make_checker(tree, l10n) {
     
     function keyword(str) {
         if (str === "")
-            return record => none;
+            return record => ({valid: none, value: 0});
         let dex = str.match(dex_re);
         if (dex) {
             let left, right;
@@ -683,36 +603,36 @@ function make_checker(tree, l10n) {
                 left = +dex[2];
             if (dex[3])
                 right = +dex[3];
-            return record => (!left || left <= +record.dex) && (!right || +record.dex <= right);
+            return record => ({valid: (!left || left <= +record.dex) && (!right || +record.dex <= right), value: 0});
         }
         if (str.search(evolve_re) != -1)
-            return record => record.evolve;
+            return record => ({valid: record.evolve, value: 1});
         if (str.search(megaevolve_re) != -1)
-            return record => record.megaevolve;
+            return record => ({valid: record.megaevolve, value: 1});
         if (str.search(item_re) != -1)
-            return record => record.item;
+            return record => ({valid: record.item, value: 1});
         if (str.search(eggsonly_re) != -1)
-            return record => record.eggsonly;
+            return record => ({valid: record.eggsonly, value: 1});
         // if (str.search(costume_re) != -1)
-            // return record => record.costume;
+            // return record => ({valid: record.costume, value: 1});
         if (str.search(male_re) != -1)
-            return record => record.male && (!record.female || unclear);
+            return record => ({valid: record.male && (!record.female || unclear), value: 1});
         if (str.search(female_re) != -1)
-            return record => record.female && (!record.male || unclear);
+            return record => ({valid: record.female && (!record.male || unclear), value: 1});
         if (str.search(genderunknown_re) != -1)
-            return record => !record.male && !record.female;
+            return record => ({valid: !record.male && !record.female, value: 1});
         if (str.search(shiny_re) != -1)
-            return record => record.shiny;
+            return record => ({valid: record.shiny, value: 1});
         if (str.search(legendary_re) != -1)
-            return record => record.legendary;
+            return record => ({valid: record.legendary, value: 1});
         if (str.search(mythical_re) != -1)
-            return record => record.mythical;
+            return record => ({valid: record.mythical, value: 1});
         if (str.search(undefined_re) != -1)
-            return record => unclear;
-        return record => l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(str) ||
-                         l10n.filters[record.type1.toLowerCase()].toLowerCase() === str ||
-                         record.type2 !== "" && l10n.filters[record.type2.toLowerCase()].toLowerCase() === str ||
-                         l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === str;
+            return record => ({valid: unclear, value: 1});
+        return record => evaluate(l10n.names[record.name.toLowerCase()].toLowerCase().startsWith(str) ||
+                                  l10n.filters[record.type1.toLowerCase()].toLowerCase() === str ||
+                                  record.type2 !== "" && l10n.filters[record.type2.toLowerCase()].toLowerCase() === str ||
+                                  l10n.filters[record.origin_region.toLowerCase()].toLowerCase() === str);
     }
     
     function checker(node) {
@@ -728,22 +648,22 @@ function make_checker(tree, l10n) {
         case "keyword":
             return keyword(node.arg);
         case "section":
-            return record => node.arg;
+            return record => ({valid: node.arg, value: 0});
         case "specy":
-            return record => l10n.names[record.name.toLowerCase()].toLowerCase() === node.arg;
+            return record => evaluate(l10n.names[record.name.toLowerCase()].toLowerCase() === node.arg);
         case "form":
             if (l10n.forms['male'].toLowerCase() === node.arg)
-                return record => record.male && (!record.female || unclear);
+                return record => ({valid: record.male && (!record.female || unclear), value: 1});
             if (l10n.forms['female'].toLowerCase() === node.arg)
-                return record => record.female && (!record.male || unclear);
+                return record => ({valid: record.female && (!record.male || unclear), value: 1});
             if (l10n.forms['shiny'].toLowerCase() === node.arg)
-                return record => record.shiny;
-            return record => record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === node.arg || 
-                             record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === node.arg;
+                return record => ({valid: record.shiny, value: 1});
+            return record => evaluate(record.form !== "" && l10n.forms[record.form.toLowerCase()].toLowerCase() === node.arg || 
+                                      record.origin !== "" && l10n.forms[record.origin.toLowerCase()].toLowerCase() === node.arg);
         }
     }
     if (!tree)
-        return record => false;
+        return record => ({valid: false, value: 0});
     return checker(tree);
 }
 
@@ -753,7 +673,7 @@ function onfilter() {
     let special = $('#special').prop('checked');
     for (let i = 0; i < data.length; ++i) {
         var mon = $('#' + data[i].pvpoke_id);
-        if (check(data[i]) && (!data[i].special || special))
+        if (check(data[i]).valid && (!data[i].special || special))
             mon.show();
         else
             mon.hide();
@@ -876,68 +796,54 @@ function parse(e) {
         alert('Failed to parse');
         return;
     }
-    let best_l10n;
-    let best_appraisal = 0
-    for (let i = 0; i < l10n.length; ++i) {
-        // console.log(`Trying ${l10n[i].name}`);
-        let appraiser = make_appraiser(tree, l10n[i].data);
 
-        let appraisal = 0;
+    let best_species;
+    let best_value = -1;
+    for (let i = 0; i < l10n.length; ++i) {
+        let checker = make_checker(tree, l10n[i].data);
+        
+        let species = {};
+        let value = 0;
         for (let i = 0; i < data.length; ++i) {
             let male = data[i].male;
             let female = data[i].female;
+            let gender = 0;
+            let section = "";
             data[i].male = true;
             data[i].female = false;
-            appraisal += appraiser(data[i]);
+            let r = checker(data[i]);
+            value += r.value;
+            if (r.valid) {
+                gender += 2;
+                if (typeof(r.valid) === "string")
+                    section = r.valid;
+            }
             data[i].male = false;
             data[i].female = true;
-            appraisal += appraiser(data[i]);
+            r = checker(data[i]);
+            value += r.value;
+            if (r.valid) {
+                gender += 1;
+                if (typeof(r.valid) === "string")
+                    section = r.valid;
+            }
             data[i].male = male;
             data[i].female = female;
+            if (!gender)
+                continue;
+            species[data[i].pvpoke_id] = {section: section, gender: gender};
+            if (data[i].special)
+                species['_special_'] = true;
         }
-        
-        // console.log(`${l10n[i].name} gaines ${appraisal} points.`);
-        if (best_appraisal < appraisal) {
-            best_l10n = l10n[i];
-            best_appraisal = appraisal;
-        }
-    }
-    // console.log(`The best l10n is ${best_l10n.name}`);
-    
-    let checker = make_checker(tree, best_l10n.data);
-    
-    let species = {};
-    for (let i = 0; i < data.length; ++i) {
-        let male = data[i].male;
-        let female = data[i].female;
-        let gender = 0;
-        let section = "";
-        data[i].male = true;
-        data[i].female = false;
-        let r = checker(data[i]);
-        if (r) {
-            gender += 2;
-            if (typeof(r) === "string")
-                section = r;
-        }
-        data[i].male = false;
-        data[i].female = true;
-        r = checker(data[i]);
-        if (r) {
-            gender += 1;
-            if (typeof(r) === "string")
-                section = r;
-        }
-        data[i].male = male;
-        data[i].female = female;
-        if (!gender)
-            continue;
-        species[data[i].pvpoke_id] = {section: section, gender: gender};
-        if (data[i].special)
-            species['_special_'] = true;
-    }
 
-    storage.lists[$('#list select').val()] = species;
+        console.log(`${l10n[i].name} gaines ${value} points.`);
+        if (best_value < value) {
+            best_species = species;
+            best_value = value;
+        }
+    }
+    
+    storage.lists[$('#list select').val()] = best_species;
     save_all();
     load_list();
 }
