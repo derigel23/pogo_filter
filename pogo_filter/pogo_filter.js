@@ -717,6 +717,8 @@ function on_list_new() {
 }
 
 function on_list_delete() {
+    if (!confirm("Delete the list? "))
+        return;
     var name = $('#list select').val();
     $('#list select option:selected').remove();
     delete storage.lists[name];
