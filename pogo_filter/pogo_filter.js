@@ -854,6 +854,7 @@ function on_language_change() {
     storage.language = $('#language').val();
     for (let i = 0; i < data.length; ++i)
         update(i);
+    onfilter();
     generate();
     save_all();
 }
