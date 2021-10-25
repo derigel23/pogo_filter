@@ -993,7 +993,11 @@
         "Shock": "Shock Drive",
         "Burn": "Burn Drive",
         "Chill": "Chill Drive",
-        "Douse": "Douse Drive"
+        "Douse": "Douse Drive",
+        "Small Size": "Small Size",
+        "Average Size": "Average Size",
+        "Large Size": "Large Size",
+        "Super Size": "Super Size"
     },
     "Filters": {
         "Normal": "Normal",
@@ -1055,7 +1059,11 @@
         "Snapshot": "snapshot",
         "Traded": "traded",
         "TradeEvolve": "tradeevolve",
-        "Year": "year"
+        "Year": "year",
+        "XXS": "XXS",
+        "XS": "XS",
+        "XL": "XL",
+        "XXL": "XXL"
     },
     "Phrases": {
         "Caption": "My wishlist (copy whole and paste as is):",

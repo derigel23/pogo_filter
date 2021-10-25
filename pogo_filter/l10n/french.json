@@ -993,7 +993,11 @@
         "Shock": "Module Choc",
         "Burn": "Module Pyro",
         "Chill": "Module Cryo",
-        "Douse": "Module Aqua"
+        "Douse": "Module Aqua",
+        "Small Size": "Small Size",
+        "Average Size": "Average Size",
+        "Large Size": "Large Size",
+        "Super Size": "Super Size"
     },
     "Filters": {
         "Normal": "Normal",
@@ -1055,7 +1059,11 @@
         "Snapshot": "photo",
         "Traded": "échangé",
         "TradeEvolve": "évolutionparéchange",
-        "Year": "année"
+        "Year": "année",
+        "XXS": "XXS",
+        "XS": "XS",
+        "XL": "XL",
+        "XXL": "XXL"
     },
     "Phrases": {
         "Caption": "Ma liste de souhaits (copier en entier et coller tel quel):",

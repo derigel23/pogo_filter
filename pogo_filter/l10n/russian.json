@@ -903,7 +903,6 @@
         "Male": "♂",
         "Female": "♀",
         "Shiny": "✨",
-
         "Alolan": "Алольская форма",
         "Galarian": "Галарская форма",
         "Armored": "Armored",
@@ -994,7 +993,11 @@
         "Shock": "Шоковый привод",
         "Burn": "Обжигающий привод",
         "Chill": "Охлаждающий привод",
-        "Douse": "Погашающий привод"
+        "Douse": "Погашающий привод",
+        "Small Size": "Small Size",
+        "Average Size": "Average Size",
+        "Large Size": "Large Size",
+        "Super Size": "Super Size"
     },
     "Filters": {
         "Normal": "Обычный",
@@ -1056,7 +1059,11 @@
         "Snapshot": "фото",
         "Traded": "обменян",
         "TradeEvolve": "обменэволюция",
-        "Year": "год"
+        "Year": "год",
+        "XXS": "XXS",
+        "XS": "XS",
+        "XL": "XL",
+        "XXL": "XXL"
     },
     "Phrases": {
         "Caption": "Мои пожелания (скопировать полностью и вставить как есть):",
