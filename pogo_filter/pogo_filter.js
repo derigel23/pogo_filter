@@ -859,6 +859,18 @@ function on_language_change() {
     save_all();
 }
 
+function invert_filter() {
+    for (let i = 0; i < data.length; ++i) {
+        $(`#${data[i].pvpoke_id} > input[type="radio"][value="0"]`).prop('checked', function (i, val) {
+            return !val;
+        });
+        update(i);
+    }
+    onfilter();
+    generate();
+    save_all();
+}
+
 $(document).ready(function() {
     var r = 0;
     function request_json(filename, callback) {
@@ -928,4 +940,5 @@ $(document).ready(function() {
     $('#section input[type=text]').bind('input', on_section_input);
     $('.toolbox').bind('click', on_toolbox_close);
     $('.toolbox div div').bind('click', e => e.stopPropagation());
+    $('#invert').bind('click', invert_filter);
 })
